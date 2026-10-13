@@ -3,12 +3,20 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { canAccess, homeFor } from "@/lib/permissions.ts";
 import type { Role } from "@/lib/rules.ts";
+import { isSupabaseConfigured, MISSING_SUPABASE_ENV_MESSAGE, supabaseAnonKey, supabaseUrl } from "@/lib/supabase/env.ts";
 
 const PUBLIC = ["/login", "/c/"]; // login e link do cliente
 
 export async function middleware(request: NextRequest) {
+  if (!isSupabaseConfigured) {
+    return new NextResponse(MISSING_SUPABASE_ENV_MESSAGE, {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
   let response = NextResponse.next({ request });
-  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (list) => {
