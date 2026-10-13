@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   brl, normalizePlate, normalizePhone, formatPhone, normalizeCep, formatCep, quoteTotals, feePct, paymentSummary,
-  commission, isStale, showOnBoard, usernameToEmail, DEFAULT_CREDIT_FEES, round2,
+  commission, isStale, showOnBoard, usernameToEmail, DEFAULT_CREDIT_FEES, round2, isBlankItem,
 } from "./rules.ts";
 import { canAccess, navFor, homeFor } from "./permissions.ts";
 
@@ -75,4 +75,12 @@ test("permissões por perfil", () => {
   assert.equal(canAccess(null, "/quadro"), false);
   assert.equal(navFor("atendente").some(i => i.href === "/financeiro"), false);
   assert.equal(homeFor("atendente"), "/quadro");
+});
+
+test("linha de orçamento em branco", () => {
+  assert.equal(isBlankItem({ description: "", unit_price: 0 }), true);
+  assert.equal(isBlankItem({ description: "   ", unit_price: 0 }), true);
+  assert.equal(isBlankItem({ description: null, unit_price: 0 }), true);
+  assert.equal(isBlankItem({ description: "Pastilha (garantia)", unit_price: 0 }), false);
+  assert.equal(isBlankItem({ description: "", unit_price: 50 }), false);
 });

@@ -16,6 +16,8 @@ export interface BoardCard {
   id: string; number: number; plate: string; make: string | null; model: string | null; status: Status; entry_type: string;
   customer_name: string; technician_name: string | null; total: number; status_since: string; entered_at: string; exited_at: string | null; n_records: number;
 }
+/** posição horizontal de uma coluna dentro da área que rola */
+const colX = (box: HTMLElement, col: HTMLElement) => col.getBoundingClientRect().left - box.getBoundingClientRect().left + box.scrollLeft;
 const LABEL = Object.fromEntries(STATUSES.map(s => [s.id, s.label])) as Record<Status, string>;
 
 export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceipt }: {
@@ -28,7 +30,22 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
   const [busca, setBusca] = useState("");
   const [over, setOver] = useState<string | null>(null);
   const buscaRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [colAtiva, setColAtiva] = useState<Status>("orcamento");
   useEffect(() => setCards(initial), [initial]);
+  // celular: marca nos atalhos a coluna que está à vista enquanto o quadro rola de lado
+  useEffect(() => {
+    const box = scrollRef.current;
+    if (!box) return;
+    const on = () => {
+      const x = box.scrollLeft + box.clientWidth * 0.35;
+      let best: Status = "orcamento";
+      box.querySelectorAll<HTMLElement>("[data-col]").forEach(c => { if (colX(box, c) <= x) best = c.dataset.col as Status; });
+      setColAtiva(best);
+    };
+    box.addEventListener("scroll", on, { passive: true });
+    return () => box.removeEventListener("scroll", on);
+  }, []);
 
   // atalho "/" para a busca
   useEffect(() => {
@@ -78,6 +95,16 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
   const pat = cards.filter(o => o.status !== "finalizado");
   const pad = (n: number) => String(n).padStart(2, "0");
 
+  const porColuna = STATUSES.map(s => list
+    .filter(o => o.status === s.id && (s.id !== "finalizado" || (o.exited_at && Date.now() - new Date(o.exited_at).getTime() <= 3 * 864e5)))
+    .sort((a, b) => (a.entered_at < b.entered_at ? -1 : 1)));
+  function irColuna(id: Status) {
+    const box = scrollRef.current, col = box?.querySelector<HTMLElement>(`[data-col="${id}"]`);
+    if (!box || !col) return;
+    box.scrollTo({ left: colX(box, col), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    setColAtiva(id);
+  }
+
   return (
     <>
       <div className="stats">
@@ -91,10 +118,16 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
           <div className="ph"><h2>Quadro de serviço</h2>
             <div className="row"><input ref={buscaRef} className="input" placeholder="Buscar placa ou cliente" value={busca} onChange={e => setBusca(e.target.value)} style={{ maxWidth: 240 }} />
               <span className="hint">Arraste o card entre colunas ou use ‹ ›</span></div></div>
-          <div className="board-scroll"><div className="board">
+          {/* só no celular: atalhos para cada coluna (o quadro rola de lado, uma coluna por vez) */}
+          <div className="col-tabs" role="tablist" aria-label="Etapas do quadro">
+            {STATUSES.map((s, si) => (
+              <button key={s.id} type="button" role="tab" aria-selected={colAtiva === s.id} className={colAtiva === s.id ? "on" : ""}
+                onClick={() => irColuna(s.id)}><i>{pad(si + 1)}</i>{s.label}<b>{porColuna[si].length}</b></button>
+            ))}
+          </div>
+          <div className="board-scroll" ref={scrollRef}><div className="board">
             {STATUSES.map((s, si) => {
-              const cs = list.filter(o => o.status === s.id && (s.id !== "finalizado" || (o.exited_at && Date.now() - new Date(o.exited_at).getTime() <= 3 * 864e5)))
-                .sort((a, b) => (a.entered_at < b.entered_at ? -1 : 1));
+              const cs = porColuna[si];
               return (
                 <div key={s.id} className={`col ${over === s.id ? "over" : ""}`} data-col={s.id}
                   onDragOver={e => { e.preventDefault(); setOver(s.id); }} onDragLeave={() => setOver(o => (o === s.id ? null : o))}

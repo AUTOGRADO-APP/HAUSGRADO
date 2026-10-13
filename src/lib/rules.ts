@@ -55,6 +55,9 @@ export function quoteTotals(items: QuoteItem[], discount = 0) {
   return { pecas, mao, subtotal, discount: round2(discount), total: round2(subtotal - discount) };
 }
 
+/** Linha de orçamento em branco (sem descrição e sem valor): não aparece para o cliente nem nos documentos. */
+export const isBlankItem = (i: { description?: string | null; unit_price: number }) => !(i.description ?? "").trim() && !Number(i.unit_price);
+
 export interface ShopFees { fee_debit_pct: number; fee_pix_pct: number; fee_credit_pct: number[] }
 export interface Payment { method: PayMethod; amount: number; installments?: number }
 

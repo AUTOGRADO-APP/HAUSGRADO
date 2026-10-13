@@ -154,7 +154,7 @@ export function CompraEditor({ compra, suppliers, produtos }: { compra: Purchase
           <label className="field"><span className="label">Frete de entrega (R$)</span><input className="input" id="cp-frete" inputMode="decimal" value={C.frete} onChange={e => set({ frete: e.target.value })} /></label>
         </div>
         <div className="label" style={{ margin: "18px 0 4px" }}>Peças compradas</div>
-        <div className="tbl-wrap"><table><thead><tr><th>Descrição</th><th className="num" style={{ width: 80 }}>Qtd</th><th className="num" style={{ width: 130 }}>Valor un.</th><th className="num" style={{ width: 120 }}>Subtotal</th><th style={{ width: 40 }}></th></tr></thead><tbody>
+        <div className="tbl-wrap"><table className="cp-itens"><thead><tr><th>Descrição</th><th className="num" style={{ width: 80 }}>Qtd</th><th className="num" style={{ width: 130 }}>Valor un.</th><th className="num" style={{ width: 120 }}>Subtotal</th><th style={{ width: 40 }}></th></tr></thead><tbody>
           {C.itens.map((i, ix) => (
             <tr key={ix}>
               <td><input className="it-in" id={`ci-d-${ix}`} value={i.desc} onChange={e => setItem(ix, { desc: e.target.value })} placeholder="Descrição da peça" />{i.sku && <div className="hint mono" style={{ paddingLeft: 8 }}>{i.sku}</div>}</td>

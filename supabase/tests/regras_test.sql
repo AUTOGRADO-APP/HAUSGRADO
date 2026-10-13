@@ -1,7 +1,7 @@
 -- Testes das regras do banco (RLS, pagamento, desconto, compras, comissões, portal).
 -- Rodar SÓ no banco LOCAL (supabase start → supabase db reset), nunca na produção: cria usuários de teste.
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/regras_test.sql
--- Resultado esperado: linhas T1..T23 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
+-- Resultado esperado: linhas T1..T24 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
 
 \set ON_ERROR_STOP 0
 insert into auth.users values ('11111111-1111-4111-8111-111111111111','master@x'),('22222222-2222-4222-8222-222222222222','admin@x'),('33333333-3333-4333-8333-333333333333','atend@x'),('44444444-4444-4444-8444-444444444444','outro@x');
@@ -43,6 +43,7 @@ set role authenticated; set request.jwt.claim.sub = '22222222-2222-4222-8222-222
 select 'T10 admin vê despesa de taxa' t, category, amount, description from expenses;
 select 'T11 receipt' t, total, difference, discount_authorized from receipts;
 select method, installments, fee_pct from receipt_payments;
+select 'T24 histórico com as formas (Pix R$ 100,00 + Cartão de crédito 3x R$ 200,00)' t, text from service_order_history where text like 'Pagamento recebido:%';
 insert into purchases (supplier_id, purchased_on, payment_method, due_date, invoice_number) select id, current_date, 'boleto', current_date+10, '777' from suppliers limit 1;
 insert into purchase_items (purchase_id, description, qty, unit_cost) select id, 'Filtros', 10, 14 from purchases;
 update purchases set freight = 25;
