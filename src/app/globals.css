@@ -580,3 +580,152 @@ body:has(.side) .lcd-tick{flex:1 1 auto;width:auto;max-width:none;min-width:260p
   .pasta-bar{display:none!important}
   .a4img{box-shadow:none!important;width:100%;max-width:none;break-after:page}
 }
+
+/* ==================================================================================
+   CELULAR E TABLET (≤ 980px). Nada daqui vale no computador (≥ 981px):
+   os elementos novos (botão do menu, fundo do menu, extras do menu, atalhos do quadro)
+   ficam escondidos fora destas regras.
+   ================================================================================== */
+.mnav-btn,.side-x,.side-extra,.side-bg,.col-tabs{display:none}
+
+@media (max-width:980px){
+  /* barra do topo compacta e fixa: ☰ · marca · (mascote) · sino · + Nova O.S. */
+  .top{position:sticky;top:0;z-index:40;margin:-16px -16px 0;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px;
+    background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.2) blur(10px);-webkit-backdrop-filter:saturate(1.2) blur(10px);
+    border-bottom:1px solid var(--border);flex-wrap:nowrap;justify-content:flex-start;gap:10px}
+  .top-brand{display:block;flex:1 1 auto;min-width:0}
+  .top-brand .pill{min-height:34px;width:8px}
+  .top-brand .brand{gap:10px}
+  .top-brand .brand-t b{font-size:13pt;letter-spacing:.06em;white-space:nowrap}
+  .top-brand .brand-t small{font-size:9pt}
+  .top-r{flex-wrap:nowrap;gap:8px;align-items:center;flex:none}
+  .top-r .gear,.top-r .theme,.top-r .clock{display:none}
+  .top-r .nova,.top-r .bell{min-height:44px}
+  .top-r .bell{width:44px}
+  .mnav-btn{display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;padding:0;cursor:pointer;
+    background:var(--card);color:var(--text);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:var(--r-control)}
+  .mnav-btn svg,.side-x svg{width:22px;height:22px}
+  .mnav-btn:focus-visible,.side-x:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,92,0,.15)}
+
+  /* menu retrátil: gaveta que entra pela esquerda */
+  .side,.side.open{position:fixed!important;inset:0 auto 0 0;width:min(86vw,320px);max-height:none!important;z-index:70;
+    flex-direction:column;align-items:stretch;gap:12px;border-radius:0 1.6rem 1.6rem 0;border-left:0;
+    padding:calc(env(safe-area-inset-top,0px) + 16px) 14px calc(env(safe-area-inset-bottom,0px) + 16px);overflow-y:auto;overscroll-behavior:contain}
+  .side{transform:translateX(-105%);visibility:hidden;transition:transform .25s ease,visibility 0s linear .25s}
+  .side.open{transform:none;visibility:visible;transition:transform .25s ease;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .side-bg{display:block;position:fixed;inset:0;z-index:65;background:rgba(20,18,18,.45);backdrop-filter:blur(2px)}
+  .side-brand{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 4px 12px}
+  .side-brand .pill{min-height:40px}
+  .side-x{display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;padding:0;cursor:pointer;
+    background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--r-control)}
+  .side-nav{flex-direction:column;overflow:visible;margin:0;flex:none;gap:2px}
+  .side-nav .key{white-space:normal;flex:none;min-height:48px;padding:10px 14px;font-size:12pt}
+  .side-nav .chev{display:block;margin-left:auto}
+  .sub-nav{display:flex;flex-direction:column;gap:2px;margin:2px 0 6px 22px;padding-left:10px;border-left:1px solid var(--border-strong)}
+  .sub-nav .key{min-height:44px;justify-content:flex-start;border-color:transparent;font-weight:600;padding:8px 12px}
+  .sub-nav .key.on{background:var(--bg);border-color:var(--border-strong);font-weight:800}
+  .side-extra{display:grid;gap:10px;border-top:1px solid var(--border-strong);padding-top:12px}
+  .side-extra>.key{justify-content:flex-start;border-color:transparent;min-height:48px;gap:12px}
+  .side-extra>.key svg{width:19px;height:19px;opacity:.65}
+  .side-extra>.key.on{background:var(--bg);border-color:var(--border-strong)}
+  .side-prefs{flex-wrap:nowrap}
+  .side-prefs .theme{flex:1;box-shadow:none}.side-prefs .theme button{flex:1;min-height:40px}
+  .side-prefs .gear{width:52px;min-height:50px;box-shadow:none}
+  .side .me,.side.open .me{border-top:1px solid var(--border-strong);margin:auto 0 0;padding:12px 4px 0;width:auto}
+  .side .me-t{display:grid}
+
+  /* quadro: atalhos das etapas e colunas que encaixam ao rolar */
+  .col-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -4px 12px;padding:2px 4px}
+  .col-tabs::-webkit-scrollbar{display:none}
+  .col-tabs button{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 12px;cursor:pointer;
+    border:1px solid var(--border-strong);border-radius:999px;background:transparent;color:var(--text);font-weight:700;font-size:10pt;white-space:nowrap}
+  .col-tabs button i{font-style:normal;font-family:var(--font-num);color:var(--accent);font-size:9pt}
+  .col-tabs button b{font-family:var(--font-num);font-size:9pt;background:var(--bg);border-radius:.6rem;padding:1px 7px}
+  .col-tabs button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .col-tabs button.on i{color:var(--accent)}.col-tabs button.on b{background:var(--accent);color:#fff}
+  .board-scroll{scroll-snap-type:x mandatory;scroll-padding-inline:0;overscroll-behavior-x:contain}
+  .board .col{scroll-snap-align:start}
+
+  /* páginas com lista + formulário ao lado: um embaixo do outro */
+  .split[style]{grid-template-columns:minmax(0,1fr)!important}
+  .split>aside.sticky,.split>.sticky{position:static}
+
+  /* janelas (pop-ups) abrem como folha de baixo */
+  .modal-bg{place-items:end center;padding:0}
+  .modal{width:100%;max-height:92dvh;border-radius:1.6rem 1.6rem 0 0;padding:20px 16px calc(env(safe-area-inset-bottom,0px) + 16px)}
+}
+
+@media (max-width:640px){
+  .wrap{padding-inline:12px;padding-block:12px}
+  .top{margin:-12px -12px 0;padding-inline:12px;gap:8px}
+  .top-brand .brand-t small{display:none}
+  .top-brand{overflow:hidden}
+  .top-brand .brand-t{min-width:0}
+  .top-brand .brand{gap:8px}
+  .top-brand .brand-t b{font-size:10.5pt;letter-spacing:.01em;overflow:hidden;text-overflow:ellipsis}
+  .top-r .mascot{display:none}
+  .top-r .nova{padding:0 14px;font-size:10.5pt}
+  .casing{gap:14px}
+  .content{gap:14px}
+  .panel{padding:16px 14px}
+  .ph h2{font-size:14pt}
+
+  /* números do pátio: 4 lado a lado, compactos */
+  .stats:not([style]){grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .stats:not([style]) .stat{padding:10px 10px;border-radius:1.1rem}
+  .stats:not([style]) .stat span{font-size:7pt;line-height:1.2;letter-spacing:.02em}
+  .stats:not([style]) .stat strong{font-size:14pt}
+  .stats:not([style]) .stat.hl strong{font-size:16pt}
+
+  /* quadro: uma coluna por vez, com uma ponta da próxima aparecendo */
+  .board{grid-template-columns:repeat(6,calc(100vw - 72px));gap:10px}
+  .board-wide .ph .row{width:100%}.board-wide .ph .row .input{max-width:none!important;flex:1}
+  .board-wide .ph .hint{display:none}
+
+  /* listas dos pop-ups (peça / serviço cadastrado): nome em cima, preço e botão embaixo */
+  .pk-it,.pk-it[style]{grid-template-columns:minmax(0,1fr) auto!important;align-items:center}
+  .pk-it>:first-child{grid-column:1/-1}
+  .pk-it .key{white-space:normal;text-align:center;min-height:40px}
+
+  /* filtros De / Até lado a lado; o terceiro campo ocupa a linha toda */
+  .grid3:has(input[type=date]){grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid3:has(input[type=date])>:last-child:nth-child(odd){grid-column:1/-1}
+  .field{min-width:0}
+  input[type=date].input,input[type=datetime-local].input{min-width:0;width:100%;padding-inline:12px}
+
+  /* itens editáveis do orçamento e da compra: cada linha vira um cartão
+     orçamento: [tipo ......... ×] [descrição] [qtd | valor | subtotal]
+     compra:    [descrição .... ×] [qtd | valor | subtotal] */
+  .tbl-wrap:has(table.orc-itens),.tbl-wrap:has(table.cp-itens){overflow:visible}
+  table.orc-itens,table.cp-itens{display:block;border-spacing:0}
+  table.orc-itens thead,table.cp-itens thead{display:none}
+  table.orc-itens tbody,table.cp-itens tbody{display:grid;gap:10px}
+  table.orc-itens tr,table.cp-itens tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:6px 8px;align-items:end;
+    background:var(--bg);border:1px solid var(--border);border-radius:1.2rem;padding:10px 12px}
+  table.orc-itens td,table.cp-itens td{display:block;padding:0!important;border:0!important;border-radius:0!important;background:none;min-width:0}
+  table.orc-itens td:nth-child(1){grid-column:1/4;grid-row:1;align-self:center}
+  table.orc-itens td:nth-child(6),table.cp-itens td:nth-child(5){grid-column:4;grid-row:1;align-self:start}
+  table.orc-itens td:nth-child(2),table.cp-itens td:nth-child(1){grid-column:1/-1}
+  table.orc-itens td:nth-child(2){grid-row:2}
+  table.cp-itens td:nth-child(1){grid-column:1/4;grid-row:1}
+  table.orc-itens td:nth-child(5),table.cp-itens td:nth-child(4){grid-column:3/-1}
+  table.orc-itens td:nth-child(n+3):nth-child(-n+5)::before,table.cp-itens td:nth-child(n+2):nth-child(-n+4)::before{
+    content:attr(data-label);display:block;font-size:7.5pt;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:0 8px 2px}
+  table.orc-itens td.num,table.cp-itens td.num{text-align:right;padding-bottom:6px!important}
+  table.orc-itens .it-in,table.cp-itens .it-in{background:var(--input-bg);border-color:var(--border);min-height:40px}
+
+  /* tabelas de lista viram cartões (o rótulo de cada coluna vai acima do valor) */
+  table.tm{border-spacing:0;display:block}
+  table.tm thead{display:none}
+  table.tm tbody{display:grid;gap:10px}
+  table.tm tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:1.2rem;padding:12px 14px}
+  table.tm tr.click:hover,table.tm tr.sel{border-color:var(--accent)}
+  table.tm td{display:block;padding:0;border:0!important;border-radius:0!important;background:none;min-width:0;text-align:left;overflow-wrap:anywhere}
+  table.tm td::before{content:attr(data-label);display:block;font-family:var(--font-ui);font-size:7.5pt;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+  table.tm td[data-label=""]::before{display:none}
+  table.tm td[data-label=""],table.tm td[colspan]{grid-column:1/-1}
+  table.tm tr:has(td[colspan]:only-child){background:none;border:0;padding:0}
+  .tbl-wrap:has(table.tm){overflow:visible}
+}
+
+@media (prefers-reduced-motion:reduce){.side,.side.open{transition:none}}

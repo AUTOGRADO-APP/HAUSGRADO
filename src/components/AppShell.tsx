@@ -181,21 +181,62 @@ function LembPanel({ data, onClose }: { data: ShellData; onClose: () => void }) 
   );
 }
 
+/** Celular: marca as tabelas de lista (classe "tm") e copia o título de cada coluna para as células
+ *  (data-label), para o CSS mostrar cada linha como um cartão. As tabelas de itens editáveis (orçamento, compra) têm um layout próprio. */
+function useTabelasCartao() {
+  useEffect(() => {
+    const root = document.querySelector(".content");
+    if (!root) return;
+    const marcar = () => {
+      root.querySelectorAll<HTMLTableElement>(".tbl-wrap > table").forEach(t => {
+        const ths = Array.from(t.querySelectorAll("thead th"));
+        if (ths.length < 2) return;
+        // tabelas de itens editáveis na linha (orçamento, compra) têm layout próprio no celular
+        t.classList.toggle("tm", !t.querySelector("tbody .it-in"));
+        const nomes = ths.map(th => (th.textContent || "").trim());
+        t.querySelectorAll("tbody tr").forEach(tr => {
+          let i = 0;
+          Array.from(tr.children).forEach(td => {
+            const l = nomes[i] ?? "";
+            if (td.getAttribute("data-label") !== l) td.setAttribute("data-label", l);
+            i += (td as HTMLTableCellElement).colSpan || 1;
+          });
+        });
+      });
+    };
+    marcar();
+    let pend = 0;
+    const mo = new MutationObserver(() => { if (!pend) pend = requestAnimationFrame(() => { pend = 0; marcar(); }); });
+    mo.observe(root, { childList: true, subtree: true });
+    return () => { mo.disconnect(); if (pend) cancelAnimationFrame(pend); };
+  }, []);
+}
+
 export function AppShell({ data, children }: { data: ShellData; children: ReactNode }) {
   const path = usePathname() || "/";
   const router = useRouter();
   const [som, setSomS] = useState(true);
   const [tema, setTema] = useState<"light" | "dark">("light");
   const [lemb, setLemb] = useState(false);
+  const [menu, setMenu] = useState(false);   // menu retrátil do celular (≤ 980px)
+  useTabelasCartao();
   const U = data.me; const fin = U.role !== "atendente"; const master = U.role === "master";
   useEffect(() => { setSomS(somOn()); setTema(getTheme()); }, []);
-  useEffect(() => { setLemb(false); }, [path]);
+  useEffect(() => { setLemb(false); setMenu(false); }, [path]);
+  // menu aberto: trava a rolagem da página atrás dele
+  useEffect(() => {
+    if (!menu) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [menu]);
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       const typing = !!t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
       if (e.key === "Escape") {
         if (document.querySelector(".modal-bg")) return;            // o modal trata o Esc
+        if (menu) { setMenu(false); return; }
         if (lemb) { setLemb(false); return; }
         if (!typing && /^\/os\//.test(path)) router.push("/quadro");
         return;
@@ -205,7 +246,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
-  }, [lemb, path, router]);
+  }, [lemb, menu, path, router]);
   useEffect(() => {
     const p = new URLSearchParams(location.search);
     if (p.get("restrito")) { toast("Acesso restrito ao seu perfil", { err: true }); history.replaceState(null, "", path); }
@@ -223,6 +264,9 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
     <div className="wrap">
       <div className="casing">
         <header className="top">
+          <button className="mnav-btn" aria-label="Abrir menu" aria-expanded={menu} aria-controls="menu-principal" onClick={() => { setMenu(true); sfx("tap"); }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </button>
           <div className="top-brand"><Brand /></div>
           <div className="top-r">
             <Link className={`key accent nova ${path === "/os/nova" ? "on-n" : ""}`} title="Nova O.S. (atalho: N)" href="/os/nova" onClick={() => sfx("tap")}>
@@ -248,23 +292,41 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
         </header>
 
         <div className="shell">
-          <aside className="side">
-            <div className="side-brand"><Brand /></div>
+          {menu && <div className="side-bg" aria-hidden="true" onClick={() => setMenu(false)} />}
+          <aside className={`side ${menu ? "open" : ""}`} id="menu-principal" aria-label="Menu">
+            <div className="side-brand"><Brand />
+              <button className="side-x" aria-label="Fechar menu" onClick={() => setMenu(false)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+              </button>
+            </div>
             <nav className="side-nav" aria-label="Menu principal">
               {NAV.filter(n => fin || !n.fin).map(n => {
                 const isFin = n.k === "financeiro";
                 const on = isFin ? finOpen : cur(n.href) || (n.k === "quadro" && path.startsWith("/os/"));
                 return (
                   <div key={n.k} style={{ display: "contents" }}>
-                    <Link className={`key ${on ? "on" : ""}`} href={n.href} aria-current={on ? "page" : undefined} aria-expanded={isFin ? on : undefined} onClick={() => sfx("tap")}>
+                    <Link className={`key ${on ? "on" : ""}`} href={n.href} aria-current={on ? "page" : undefined} aria-expanded={isFin ? on : undefined} onClick={() => { sfx("tap"); if (!isFin || on) setMenu(false); }}>
                       <NavIcon k={n.k} /><span>{n.l}</span>
                       {isFin && <svg className="ic chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d={on ? "M6 15l6-6 6 6" : "M9 6l6 6-6 6"} /></svg>}
                     </Link>
-                    {isFin && on && <div className="sub-nav">{SUB.map(([h, l]) => <Link key={h} className={`key sub ${cur(h) ? "on" : ""}`} href={h} onClick={() => sfx("tap")}>{l}</Link>)}</div>}
+                    {isFin && on && <div className="sub-nav">{SUB.map(([h, l]) => <Link key={h} className={`key sub ${cur(h) ? "on" : ""}`} href={h} onClick={() => { sfx("tap"); setMenu(false); }}>{l}</Link>)}</div>}
                   </div>
                 );
               })}
             </nav>
+            {/* só no celular: o que sai da barra do topo vem para o fim do menu */}
+            <div className="side-extra">
+              {master && <Link className={`key ${cur("/config") ? "on" : ""}`} href="/config" onClick={() => { sfx("tap"); setMenu(false); }}>{IGEAR}<span>Configurações</span></Link>}
+              <div className="row side-prefs">
+                <div className="theme" role="group" aria-label="Tema">
+                  {(["light", "dark"] as const).map(t => (
+                    <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} onClick={() => { setTheme(t); setTema(t); sfx("tap"); }}>{t === "light" ? "Claro" : "Escuro"}</button>
+                  ))}
+                </div>
+                <button className="gear" aria-label={som ? "Desligar sons" : "Ligar sons"} title={som ? "Sons ligados" : "Sons desligados"}
+                  onClick={() => { const v = !som; setSom(v); setSomS(v); if (v) sfx("tap"); }}>{som ? ISOM : ISOMX}</button>
+              </div>
+            </div>
             <div className="me">
               <span className="avatar" aria-hidden="true">{iniciais(U.full_name)}</span>
               <span className="me-t"><b>{primeiroNome(U.full_name)}</b><small>{PAPEIS[U.role]}</small></span>
