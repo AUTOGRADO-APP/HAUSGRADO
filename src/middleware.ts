@@ -37,8 +37,12 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone(); url.pathname = "/login"; url.search = "?e=inativo";
     return NextResponse.redirect(url);
   }
-  if (path === "/" || path === "/login" || !canAccess(role, path)) {
+  if (path === "/" || path === "/login") {
     const url = request.nextUrl.clone(); url.pathname = homeFor(role); url.search = "";
+    return NextResponse.redirect(url);
+  }
+  if (!canAccess(role, path)) {   // rota proibida: volta ao Quadro com o aviso "Acesso restrito ao seu perfil"
+    const url = request.nextUrl.clone(); url.pathname = "/quadro"; url.search = "?restrito=1";
     return NextResponse.redirect(url);
   }
   return response;

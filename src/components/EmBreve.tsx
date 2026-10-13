@@ -1,16 +1,12 @@
-import { TopBar } from "./TopBar.tsx";
-import { getMe } from "@/lib/supabase/server.ts";
-
 // Página ainda não portada do protótipo. Referência: docs/prototipo/hausgrado-prototipo.html + CLAUDE.md.
-export async function EmBreve({ title, secao }: { title: string; secao: string }) {
-  const me = await getMe();
+export function EmBreve({ title, secao }: { title: string; secao: string }) {
   return (
-    <>
-      <TopBar title={title} isMaster={me?.role === "master"} />
-      <div className="card">
-        <p><strong>Em construção.</strong> Esta tela será portada do protótipo.</p>
-        <p className="muted">Especificação: CLAUDE.md › {secao}</p>
-      </div>
-    </>
+    <main id="view">
+      <section className="panel">
+        <div className="ph"><h2>{title}</h2></div>
+        <p style={{ margin: 0 }}><b>Em construção.</b> Esta tela está sendo portada do protótipo.</p>
+        <p className="hint" style={{ margin: "6px 0 0" }}>Especificação: CLAUDE.md › {secao}</p>
+      </section>
+    </main>
   );
 }
