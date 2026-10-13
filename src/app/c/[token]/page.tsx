@@ -1,17 +1,27 @@
 "use client";
 // Link do cliente: /c/{token}. Público; o celular cadastrado funciona como senha.
 // Os dados vêm da Edge Function "portal" (service_role fica no servidor da função).
-import { use, useState } from "react";
+// Visual do protótipo (vPortal). "Ao vivo": recarrega sozinho a cada 30 s e ao voltar para a aba.
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { brl, STATUSES } from "@/lib/rules.ts";
+import { FOTOS, ORC_ST, digits, dt, fmtFone } from "@/lib/labels.ts";
+import { sfx, toast } from "@/lib/ui.ts";
+import { Plate } from "@/components/Plate.tsx";
+import { ToastHost } from "@/components/Toast.tsx";
+import { FOOT } from "@/components/AppShell.tsx";
 
+interface PRec { tab: string; url: string | null; mime: string | null; description: string | null; at: string }
 interface PortalData {
   shop: string; number: number; plate: string; make: string | null; model: string | null;
-  customer_first_name: string; status: string; last_update: { at: string; text: string } | null;
-  quote: null | { number: number; status: string; total: number; discount: number;
+  customer_first_name: string; status: string; entered_at: string; exited_at: string | null;
+  last_update: { at: string; text: string } | null;
+  quote: null | { id: string; number: number; status: string; total: number; discount: number;
     items: { kind: string; description: string; details: string | null; qty: number; unit_price: number }[] };
   photos: { position: string; url: string | null }[];
-  records: { tab: string; url: string | null; mime: string | null; description: string | null }[];
+  records: PRec[];
 }
+
+const OFICINA = process.env.NEXT_PUBLIC_SHOP_NAME || "Autogrado";
 
 export default function Portal({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
@@ -19,72 +29,154 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
   const [data, setData] = useState<PortalData | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const senha = useRef("");
+  const ultima = useRef({ sig: "", at: 0 });
 
-  async function call(extra: Record<string, string> = {}) {
-    setBusy(true); setErr(null);
+  const call = useCallback(async (p: string, extra: Record<string, string> = {}, silent = false) => {
+    if (!silent) { setBusy(true); setErr(null); }
     const r = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/portal`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! },
-      body: JSON.stringify({ token, phone, ...extra }),
+      body: JSON.stringify({ token, phone: p, ...extra }),
     }).catch(() => null);
     const j = r ? await r.json().catch(() => ({ error: "Resposta inválida." })) : { error: "Sem conexão." };
-    setBusy(false);
-    if (j.error) setErr(j.error); else setData(j);
+    if (!silent) setBusy(false);
+    if (j.error) { if (!silent) { setErr(j.error); sfx("err"); } return false; }
+    const d = j as PortalData;
+    const sig = assinatura(d);
+    // na atualização automática, só troca os dados se algo mudou (ou se as URLs assinadas estão perto de expirar)
+    if (!silent || sig !== ultima.current.sig || Date.now() - ultima.current.at > 45 * 60e3) {
+      ultima.current = { sig, at: Date.now() };
+      setData(d);
+    }
+    return true;
+  }, [token]);
+
+  async function entrar() {
+    let p = digits(phone); if (p.startsWith("55") && p.length > 11) p = p.slice(2);
+    if (p.length < 10) { setErr("Digite o celular com DDD"); sfx("err"); return; }
+    if (await call(p)) { senha.current = p; sfx("login"); }
+  }
+  function sair() { senha.current = ""; setPhone(""); setData(null); setErr(null); }
+  async function decidir(decision: "aprovado" | "recusado") {
+    if (await call(senha.current, { decision })) {
+      if (decision === "aprovado") toast("Orçamento aprovado. Obrigado!", { sound: "ok" });
+      else toast("Orçamento recusado. A oficina vai entrar em contato.");
+    } else toast("Não foi possível registrar agora. Tente de novo.", { err: true });
   }
 
+  // ao vivo: atualiza periodicamente enquanto a página está aberta
+  const logado = !!data;
+  useEffect(() => {
+    if (!logado) return;
+    const tick = () => { if (senha.current && document.visibilityState === "visible") void call(senha.current, {}, true); };
+    const t = setInterval(tick, 30000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", tick); };
+  }, [logado, call]);
+
   if (!data) return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 16 }}>
-      <form className="card" style={{ width: "min(380px,100%)", display: "grid", gap: 14 }} onSubmit={e => { e.preventDefault(); call(); }}>
-        <div className="brand">AUTOGRADO<small>Acompanhe seu veículo</small></div>
-        <label className="label" htmlFor="ph">Seu celular (com DDD)</label>
-        <input id="ph" className="input" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(61) 9 9999-9999" />
-        {err && <p className="error" role="alert">{err}</p>}
-        <button className="btn btn-primary" disabled={busy}>Ver meu veículo</button>
-      </form>
-    </main>
+    <div className="wrap"><div className="portal">
+      <section className="panel login">
+        <div className="brand"><span className="pill" aria-hidden="true" /><div className="brand-t"><b>{OFICINA}</b><small>Acompanhamento do seu veículo</small></div></div>
+        <div className={`lcd lcd-msg ${err ? "err" : ""}`} role="status">{err ? err.toUpperCase() : "DIGITE SEU CELULAR COM DDD"}</div>
+        <form className="stack" onSubmit={e => { e.preventDefault(); void entrar(); }}>
+          <input className={`input ${err ? "bad" : ""}`} id="pt-senha" inputMode="tel" placeholder="(61) 98765-4321" aria-label="Celular com DDD"
+            style={{ fontSize: "16pt", textAlign: "center" }} autoComplete="off" value={fmtFone(phone)} onChange={e => setPhone(digits(e.target.value))} />
+          <button className="key accent" style={{ padding: 14 }} disabled={busy}>{busy ? "Entrando…" : "Entrar"}</button>
+        </form>
+        <p className="hint" style={{ margin: 0, textAlign: "center" }}>A senha é o seu celular com DDD, só números. Seus dados são usados apenas para o atendimento do seu veículo.</p>
+      </section>
+      {FOOT}
+    </div><ToastHost /></div>
   );
 
-  const step = STATUSES.findIndex(s => s.id === data.status);
-  const q = data.quote;
+  const i = Math.max(0, STATUSES.findIndex(s => s.id === data.status));
+  const fin = data.status === "finalizado";
+  const r = data.quote;
+  const fotos = FOTOS.map(([k, l]) => ({ l, url: data.photos.find(p => p.position === k)?.url })).filter(f => f.url);
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: 16, display: "grid", gap: 16 }}>
-      <div className="card">
-        <div className="muted">Olá, {data.customer_first_name}</div>
-        <h1 style={{ margin: "6px 0" }}>{[data.make, data.model].filter(Boolean).join(" ")} <span className="plate">{data.plate}</span></h1>
-        <div className="muted num">O.S. {data.number}</div>
-        <ol style={{ display: "flex", gap: 6, listStyle: "none", padding: 0, flexWrap: "wrap" }}>
-          {STATUSES.map((s, i) => (
-            <li key={s.id} className="btn" style={i <= step ? { background: "var(--accent)", color: "#fff", borderColor: "var(--accent)" } : {}}>{s.label}</li>
+    <div className="wrap"><div className="portal">
+      <section className="panel">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <span className="label">{data.shop} · OS {data.number}</span><span className="live"><span className="dot" />AO VIVO</span></div>
+        <div className="os-head" style={{ marginTop: 10 }}>
+          <Plate p={data.plate} lg />
+          <div className="info"><h1>{data.make} {data.model}</h1>
+            <div className="muted">Olá, {data.customer_first_name}. Entrada em {dt(data.entered_at)}</div></div>
+        </div>
+        <div className={`lcd total-lcd ${fin ? "ok" : ""}`} style={{ marginTop: 16 }}>
+          <span className="lcd-msg">Etapa atual</span>
+          <strong style={{ fontSize: "16pt", ...(fin ? { color: "inherit" } : {}) }}>{STATUSES[i].label}</strong>
+        </div>
+        <div className="steps" style={{ marginTop: 12 }}>
+          {STATUSES.map((s, j) => (
+            <div key={s.id} className={`step ${j <= i ? "done" : ""} ${j === i ? "cur" : ""} ${i === 5 ? "fin" : ""}`}><div className="bar" /><span>{s.label}</span></div>
           ))}
-        </ol>
-        {data.last_update && <p className="muted">Última atualização: {data.last_update.text}</p>}
-      </div>
-      {q && (
-        <div className="card">
-          <strong>Orçamento nº {q.number}</strong>
-          {q.items.map((it, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-              <span>{it.qty}× {it.description}{it.details && <small className="muted"><br />{it.details}</small>}</span>
-              <span className="num">{brl(it.qty * it.unit_price)}</span>
-            </div>
-          ))}
-          {Number(q.discount) > 0 && <p className="num">Desconto: −{brl(Number(q.discount))}</p>}
-          <p className="num" style={{ fontSize: 22, fontWeight: 700 }}>Total: {brl(Number(q.total))}</p>
-          {["rascunho", "enviado"].includes(q.status) && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn btn-primary" disabled={busy} onClick={() => call({ decision: "aprovado" })}>Aprovar orçamento</button>
-              <button className="btn" disabled={busy} onClick={() => call({ decision: "recusado" })}>Recusar</button>
+        </div>
+        {data.last_update && <p className="hint" style={{ margin: "10px 0 0" }}>Última atualização: {dt(data.last_update.at)} — {data.last_update.text}</p>}
+      </section>
+
+      {r && (
+        <section className="panel">
+          <div className="ph"><h2>Orçamento nº {r.number}</h2>
+            <span className={`chip ${r.status === "aprovado" ? "ok" : r.status === "recusado" ? "bad" : ""}`}>{ORC_ST[r.status]}</span></div>
+          <div className="tbl-wrap"><table><tbody>
+            {r.items.map((it, j) => (
+              <tr key={j}><td>{it.description}
+                {it.details && <div className="hint">{it.details}</div>}
+                <div className="hint">{it.kind === "peca" ? "Peça" : "Mão de obra"} · {Number(it.qty)}x {brl(Number(it.unit_price))}</div></td>
+                <td className="num">{brl(Number(it.qty) * Number(it.unit_price))}</td></tr>
+            ))}
+            {Number(r.discount) > 0 && <tr><td>Desconto</td><td className="num">−{brl(Number(r.discount))}</td></tr>}
+          </tbody></table></div>
+          <div className="lcd total-lcd" style={{ marginTop: 10 }}><span className="lcd-msg">TOTAL</span><strong>{brl(Number(r.total))}</strong></div>
+          {(r.status === "rascunho" || r.status === "enviado") && (
+            <div className="grid2" style={{ marginTop: 12 }}>
+              <button className="key accent" style={{ padding: 14 }} disabled={busy} onClick={() => void decidir("aprovado")}>Aprovar orçamento</button>
+              <button className="key" style={{ padding: 14 }} disabled={busy} onClick={() => void decidir("recusado")}>Recusar</button>
             </div>
           )}
-          {q.status === "aprovado" && <p>Orçamento aprovado ✓</p>}
-          {err && <p className="error">{err}</p>}
-        </div>
+        </section>
       )}
-      {data.photos.length > 0 && (
-        <div className="card" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8 }}>
-          {data.photos.map(p => p.url && <img key={p.position} src={p.url} alt={p.position} style={{ width: "100%", borderRadius: 12 }} />)}
-        </div>
+
+      <Gal recs={data.records} titulo="Serviço" k="servicos" vazio="A equipe ainda não registrou serviços." />
+      <Gal recs={data.records} titulo="Peças" k="pecas" vazio="Nenhuma peça registrada." />
+      <Gal recs={data.records} titulo="Avarias registradas" k="avarias" vazio="Nenhuma avaria registrada." />
+      {fotos.length > 0 && (
+        <section className="panel"><div className="ph"><h2>Fotos da entrada</h2></div>
+          <div className="photos-mini">{fotos.map(f => (
+            <span className="slot has" key={f.l}><img src={f.url!} alt={f.l} /><span className="cap">{f.l}</span></span>
+          ))}</div>
+        </section>
       )}
-    </main>
+      <div className="row" style={{ justifyContent: "center" }}><button className="key sm" onClick={sair}>Sair</button></div>
+      {FOOT}
+    </div><ToastHost /></div>
+  );
+}
+
+function assinatura(d: PortalData) {
+  return JSON.stringify([d.status, d.exited_at, d.last_update, d.quote && [d.quote.status, d.quote.total, d.quote.items.length],
+    d.photos.map(p => p.position), d.records.map(r => [r.tab, r.at, r.description, !!r.url])]);
+}
+
+function Fig({ m }: { m: PRec }) {
+  return (
+    <figure>
+      {m.url && <div className="pv">{(m.mime ?? "").startsWith("video")
+        ? <video src={m.url} controls playsInline preload="metadata" />
+        : <img src={m.url} alt={m.description || ""} />}</div>}
+      <figcaption><span className="label">{dt(m.at)}</span><br />{m.description || "Sem descrição"}</figcaption>
+    </figure>
+  );
+}
+
+function Gal({ recs, titulo, k, vazio }: { recs: PRec[]; titulo: string; k: string; vazio: string }) {
+  const l = recs.filter(x => x.tab === k);
+  return (
+    <section className="panel"><div className="ph"><h2>{titulo}</h2><span className="count">{l.length}</span></div>
+      {l.length ? <div className="gal">{l.map(m => <Fig key={`${m.at}-${m.url ?? ""}`} m={m} />)}</div> : <div className="empty">{vazio}</div>}
+    </section>
   );
 }
