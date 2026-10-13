@@ -1,6 +1,6 @@
 // PDF do orçamento (seção 10.2): página A4 em HTML com texto selecionável; imprime ou salva em PDF pelo navegador.
 import { notFound } from "next/navigation";
-import { brl, quoteTotals } from "@/lib/rules.ts";
+import { brl, isBlankItem, quoteTotals } from "@/lib/rules.ts";
 import { ORC_ST, dataBR, fmtCep, fmtFone } from "@/lib/labels.ts";
 import { loadQuote, type QItem } from "../../data.ts";
 import { PrintBar } from "../../PrintBar.tsx";
@@ -16,7 +16,7 @@ export default async function OrcPdfPage({ params }: { params: Promise<{ id: str
   const b = await loadQuote(id);
   if (!b) notFound();
   const { quote: r, customer: c, os: o, shop } = b;
-  const rows = b.items.filter(i => i.description || i.unit_price);
+  const rows = b.items.filter(i => !isBlankItem(i));
   const T = quoteTotals(b.items, r.discount);
   const emit = dataBR(new Date().toISOString());
   const val = dataBR(new Date(new Date(r.created_at).getTime() + (r.validity_days || 0) * 864e5).toISOString());
@@ -28,7 +28,7 @@ export default async function OrcPdfPage({ params }: { params: Promise<{ id: str
     const st = arr.reduce((a, i) => a + i.qty * i.unit_price, 0);
     return (
       <tbody key={titulo}>
-        <tr className="grp"><td colSpan={3}>{titulo}</td><td className="r mono" style={{ fontWeight: 700, color: "#555" }}>{arr.length} {arr.length > 1 ? "itens" : "item"} · {brl(st)}</td></tr>
+        <tr className="grp"><td colSpan={2}>{titulo}</td><td colSpan={2} className="r mono" style={{ fontWeight: 700, color: "#555", whiteSpace: "nowrap" }}>{arr.length} {arr.length > 1 ? "itens" : "item"} · {brl(st)}</td></tr>
         {arr.map((it, ix) => (
           <tr key={it.id} className={ix % 2 === 1 ? "z" : ""}>
             <td><div style={{ fontSize: "9.5pt", fontWeight: 500 }}>{it.description || "—"}</div>{it.details && <div className="det">{it.details}</div>}</td>

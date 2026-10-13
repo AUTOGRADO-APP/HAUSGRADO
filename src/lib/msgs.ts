@@ -1,5 +1,5 @@
 // Mensagens de WhatsApp (texto igual ao do protótipo / seção 8.2).
-import { brl } from "./rules.ts";
+import { brl, isBlankItem } from "./rules.ts";
 import { digits, primeiroNome } from "./labels.ts";
 
 export function waURL(tel: string | null | undefined, msg: string) {
@@ -24,6 +24,6 @@ export function msgOS(o: { make: string | null; model: string | null; plate: str
 
 export function msgOrc(r: { number: number; plate: string | null; discount: number; validity_days: number; customer_name: string; items: { description: string; qty: number; unit_price: number }[]; link?: string | null }) {
   const sub = r.items.reduce((a, i) => a + i.qty * i.unit_price, 0);
-  const l = r.items.map(i => `• ${i.description} (${i.qty}x) — ${brl(i.qty * i.unit_price)}`).join("\n");
+  const l = r.items.filter(i => !isBlankItem(i)).map(i => `• ${i.description} (${i.qty}x) — ${brl(i.qty * i.unit_price)}`).join("\n");
   return `Olá, ${primeiroNome(r.customer_name)}! Segue o orçamento nº ${r.number} para o veículo placa ${r.plate || ""}:\n\n${l}\n${+r.discount ? `Desconto: −${brl(+r.discount)}\n` : ""}\n*Total: ${brl(sub - (+r.discount || 0))}*\nValidade: ${r.validity_days} dias.\n\n${r.link ? `Você pode aprovar pelo link de acompanhamento:\n${r.link}\nSenha: seu celular com DDD.` : ""}`;
 }

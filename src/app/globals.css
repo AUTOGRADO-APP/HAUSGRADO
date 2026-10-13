@@ -493,6 +493,10 @@ body:has(.side){padding-left:252px}
 .keyline{max-width:280px}
 td .keyline.sm{max-width:240px}
 td .hint.mono{white-space:nowrap}
+/* editor de orçamento: colunas fixas no mínimo para sobrar espaço à descrição */
+table.orc-itens td,table.orc-itens th{padding-left:6px;padding-right:6px}
+table.orc-itens td:first-child .chip,table.orc-itens td.num{white-space:nowrap}
+table.orc-itens td:nth-child(2){min-width:220px}
 
 /* LCD de dicas */
 .lcd-tick{--lcd-bg:#1a1b19;--lcd-on:#ff7a1a;position:relative;display:flex;align-items:center;gap:10px;width:330px;max-width:32vw;min-height:52px;background:var(--lcd-bg);border-radius:var(--r-control);padding:0 14px 0 12px;

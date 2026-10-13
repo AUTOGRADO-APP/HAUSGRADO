@@ -3,7 +3,7 @@
 // Os dados vêm da Edge Function "portal" (service_role fica no servidor da função).
 // Visual do protótipo (vPortal). "Ao vivo": recarrega sozinho a cada 30 s e ao voltar para a aba.
 import { use, useCallback, useEffect, useRef, useState } from "react";
-import { brl, STATUSES } from "@/lib/rules.ts";
+import { brl, isBlankItem, STATUSES } from "@/lib/rules.ts";
 import { FOTOS, ORC_ST, digits, dt, fmtFone } from "@/lib/labels.ts";
 import { sfx, toast } from "@/lib/ui.ts";
 import { Plate } from "@/components/Plate.tsx";
@@ -122,7 +122,7 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
           <div className="ph"><h2>Orçamento nº {r.number}</h2>
             <span className={`chip ${r.status === "aprovado" ? "ok" : r.status === "recusado" ? "bad" : ""}`}>{ORC_ST[r.status]}</span></div>
           <div className="tbl-wrap"><table><tbody>
-            {r.items.map((it, j) => (
+            {r.items.filter(it => !isBlankItem(it)).map((it, j) => (
               <tr key={j}><td>{it.description}
                 {it.details && <div className="hint">{it.details}</div>}
                 <div className="hint">{it.kind === "peca" ? "Peça" : "Mão de obra"} · {Number(it.qty)}x {brl(Number(it.unit_price))}</div></td>

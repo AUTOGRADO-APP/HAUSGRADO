@@ -210,8 +210,8 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
             {osList.map(x => <option key={x.id} value={x.id}>{x.plate} · {x.model || ""} · {x.customer_name}</option>)}
           </select>
         </label>
-        <div className="tbl-wrap"><table>
-          <thead><tr><th style={{ width: 110 }}>Tipo</th><th>Descrição</th><th className="num" style={{ width: 70 }}>Qtd</th><th className="num" style={{ width: 120 }}>Valor un.</th><th className="num" style={{ width: 120 }}>Subtotal</th><th style={{ width: 40 }}></th></tr></thead>
+        <div className="tbl-wrap"><table className="orc-itens">
+          <thead><tr><th style={{ width: 1 }}>Tipo</th><th>Descrição</th><th className="num" style={{ width: 64 }}>Qtd</th><th className="num" style={{ width: 96 }}>Valor un.</th><th className="num" style={{ width: 1 }}>Subtotal</th><th style={{ width: 1 }}></th></tr></thead>
           <tbody>
             {items.map(i => (
               <tr key={i.id}>

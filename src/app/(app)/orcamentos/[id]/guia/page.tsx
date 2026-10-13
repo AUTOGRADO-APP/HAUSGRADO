@@ -2,6 +2,7 @@
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { NIVEIS, dtFull, fmtFone } from "@/lib/labels.ts";
+import { isBlankItem } from "@/lib/rules.ts";
 import { loadQuote, type QItem } from "../../data.ts";
 import { PrintBar } from "../../PrintBar.tsx";
 import { docCss } from "../../doc-css.ts";
@@ -90,7 +91,7 @@ export default async function GuiaPage({ params }: { params: Promise<{ id: strin
   const emit = dtFull(new Date().toISOString());
   const placa = o.plate || r.plate || "—";
   const footer = `${shop.name} · Guia de serviço · O.S. ${o.number} · ${placa}`;
-  const rows = b.items.filter(i => i.description || i.unit_price);
+  const rows = b.items.filter(i => !isBlankItem(i));
   const pecas = rows.filter(i => i.kind === "peca"), mao = rows.filter(i => i.kind === "mao");
   const de = new Date(o.entered_at);
   const lv = NIVEIS.indexOf(o.fuel_level || "");
