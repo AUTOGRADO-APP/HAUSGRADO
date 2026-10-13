@@ -38,3 +38,7 @@ begin
     end loop;
   end if;
 end $$;
+
+-- Só usuários logados chamam a conferência (rodar no SQL Editor; o conector não executa revoke)
+revoke execute on function public.verify_discount_password(text) from public, anon;
+grant execute on function public.verify_discount_password(text) to authenticated;
