@@ -6,38 +6,45 @@ import { brl } from "@/lib/rules.ts";
 import { ADIT, APIS, CATN, CATS, MARCAS, VISC, VOLS, digits, numBR, parseNum } from "@/lib/labels.ts";
 import { eanOk, margem, prodResumo } from "@/lib/produtos.ts";
 import { errMsg, toast } from "@/lib/ui.ts";
+import { estoqueBaixo, estoqueSit, qtdBR } from "@/lib/estoque.ts";
+import { EstoquePanel } from "./EstoquePanel.tsx";
 
 export interface Produto {
   id: string; name: string; manufacturer: string | null; sku: string | null; ean: string | null;
   cost: number; price: number; category: string;
   viscosity: string | null; api: string | null; volume: string | null; application_spec: string | null;
   application_brands: string[]; additive_type: string | null;
+  stock_qty: number; min_stock: number; reserved: number; incoming: number;
 }
 interface Form {
   id: string | null; nome: string; fabricante: string; sku: string; ean: string; custo: string; preco: string; categoria: string;
   visc: string; api: string; vol: string; espec: string; aplic: string[]; tipoAd: string;
+  minimo: string; inicial: string;
 }
-const novo = (): Form => ({ id: null, nome: "", fabricante: "", sku: "", ean: "", custo: "", preco: "", categoria: "", visc: "", api: "", vol: "", espec: "", aplic: [], tipoAd: "" });
+const novo = (): Form => ({ id: null, nome: "", fabricante: "", sku: "", ean: "", custo: "", preco: "", categoria: "", visc: "", api: "", vol: "", espec: "", aplic: [], tipoAd: "", minimo: "", inicial: "" });
 const doProduto = (p: Produto): Form => ({
   id: p.id, nome: p.name, fabricante: p.manufacturer ?? "", sku: p.sku ?? "", ean: p.ean ?? "",
   custo: numBR(p.cost), preco: numBR(p.price), categoria: p.category,
   visc: p.viscosity ?? "", api: p.api ?? "", vol: p.volume ?? "", espec: p.application_spec ?? "",
   aplic: [...(p.application_brands ?? [])], tipoAd: p.additive_type ?? "",
+  minimo: numBR(p.min_stock), inicial: "",
 });
 
-export function Produtos({ rows }: { rows: Produto[] }) {
+export function Produtos({ rows, filtroInicial = "" }: { rows: Produto[]; filtroInicial?: string }) {
   const router = useRouter();
   const [busca, setBusca] = useState("");
-  const [cat, setCat] = useState("");
+  const [cat, setCat] = useState(filtroInicial);
   const [F, setF] = useState<Form>(novo);
   const [pend, setPend] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const set = (p: Partial<Form>) => setF(f => ({ ...f, ...p }));
 
   const q = busca.toLowerCase();
-  const list = rows.filter(x => (!cat || x.category === cat) && (!q || [x.name, x.manufacturer, x.sku, x.ean].join(" ").toLowerCase().includes(q)))
+  const list = rows.filter(x => (!cat || (cat === "baixo" ? estoqueBaixo(x) || x.stock_qty < 0 : x.category === cat)) && (!q || [x.name, x.manufacturer, x.sku, x.ean].join(" ").toLowerCase().includes(q)))
     .sort((a, b) => a.name.localeCompare(b.name));
   const cnt = (k: string) => rows.filter(x => x.category === k).length;
+  const nBaixo = rows.filter(x => estoqueBaixo(x) || x.stock_qty < 0).length;
+  const aberto = F.id ? rows.find(x => x.id === F.id) : undefined;
   const mg = margem(F.custo === "" ? 0 : parseNum(F.custo), F.preco === "" ? 0 : parseNum(F.preco));
   const eanBad = !!F.ean && !eanOk(F.ean);
 
@@ -90,6 +97,9 @@ export function Produtos({ rows }: { rows: Produto[] }) {
     if (F.preco === "" || !(preco > 0)) return toast("Informe o preço de venda");
     if (F.ean && !eanOk(F.ean)) return toast("Não foi possível validar o EAN. Confira os dígitos.");
     const sku = F.sku.trim().toUpperCase();
+    const minimo = parseNum(F.minimo), inicial = parseNum(F.inicial);
+    if (minimo < 0) return toast("Informe um estoque mínimo de zero ou mais");
+    if (!F.id && inicial < 0) return toast("Informe um estoque inicial de zero ou mais");
     if (sku && rows.some(p => p.id !== F.id && (p.sku ?? "").toUpperCase() === sku)) return toast("Esse SKU já está em outro produto", { err: true });
     const c = F.categoria;
     // Características que não se aplicam à categoria são descartadas.
@@ -100,13 +110,17 @@ export function Produtos({ rows }: { rows: Produto[] }) {
     else if (c === "aditivos") keep.additive_type = F.tipoAd || null;
     const data = {
       name: F.nome.trim(), manufacturer: F.fabricante.trim() || null, sku: sku || null, ean: digits(F.ean) || null,
-      cost: parseNum(F.custo) || 0, price: preco, category: c, ...keep,
+      cost: parseNum(F.custo) || 0, price: preco, category: c, ...keep, min_stock: minimo || 0,
     };
     setSalvando(true);
     const sb = createClient();
-    const { error } = F.id ? await sb.from("products").update(data).eq("id", F.id) : await sb.from("products").insert(data);
+    const { data: row, error } = F.id ? await sb.from("products").update(data).eq("id", F.id).select("id").single() : await sb.from("products").insert(data).select("id").single();
+    if (error) { setSalvando(false); return toast(error.code === "23505" ? "Esse SKU já está em outro produto" : errMsg(error), { err: true }); }
+    if (!F.id && inicial > 0 && row) {
+      const { error: e2 } = await sb.rpc("adjust_stock", { p_product: row.id, p_qty: inicial, p_reason: "Estoque inicial" });
+      if (e2) toast("Produto cadastrado, mas o estoque inicial não foi lançado: " + errMsg(e2), { err: true });
+    }
     setSalvando(false);
-    if (error) return toast(error.code === "23505" ? "Esse SKU já está em outro produto" : errMsg(error), { err: true });
     toast(F.id ? "Produto atualizado" : "Produto cadastrado", { sound: "ok" });
     setF(novo());
     router.refresh();
@@ -136,23 +150,27 @@ export function Produtos({ rows }: { rows: Produto[] }) {
           </div>
           <div className="row" style={{ marginBottom: 12 }}>
             <button className={`key sm ${!cat ? "on" : ""}`} onClick={() => setCat("")}>Todos</button>
+            <button className={`key sm ${cat === "baixo" ? "on" : ""}`} id="pr-f-baixo" onClick={() => setCat(cat === "baixo" ? "" : "baixo")}>Estoque baixo <span className={`count ${nBaixo ? "bad" : ""}`}>{nBaixo}</span></button>
             {CATS.map(([k, l]) => <button key={k} className={`key sm ${cat === k ? "on" : ""}`} onClick={() => setCat(k)}>{l} <span className="count">{cnt(k)}</span></button>)}
           </div>
-          <div className="tbl-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th>SKU / EAN</th><th className="num">Custo</th><th className="num">Preço</th><th className="num">Margem</th></tr></thead><tbody>
+          <div className="tbl-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th>SKU / EAN</th><th className="num">Estoque</th><th className="num">Custo</th><th className="num">Preço</th><th className="num">Margem</th></tr></thead><tbody>
             {list.map(x => {
-              const m = margem(x.cost, x.price), r = prodResumo(x);
+              const m = margem(x.cost, x.price), r = prodResumo(x), es = estoqueSit(x);
               return (
                 <tr key={x.id} className={`click ${F.id === x.id ? "sel" : ""}`} onClick={() => editar(x)}>
                   <td><b>{x.name}</b><div className="hint">{x.manufacturer || "—"}{r ? " · " + r : ""}</div></td>
                   <td><span className="chip">{CATN[x.category] || "—"}</span></td>
                   <td className="mono" style={{ fontSize: "9.5pt" }}>{x.sku || "—"}<div className="hint mono">{x.ean || ""}</div></td>
+                  <td className="num est-td"><b className={`mono ${es.cls ? "est-neg" : ""}`}>{qtdBR(x.stock_qty)}</b>
+                    {es.cls ? <div><span className={`chip ${es.cls} est-chip`}>{es.k === "zero" ? "Sem estoque" : `Baixo · mín. ${qtdBR(x.min_stock)}`}</span></div>
+                      : x.min_stock > 0 ? <div className="hint mono">mín. {qtdBR(x.min_stock)}</div> : null}</td>
                   <td className="num">{brl(x.cost)}</td>
                   <td className="num"><b>{brl(x.price)}</b></td>
                   <td className="num">{m == null ? "—" : <span className={`dl ${m >= 30 ? "up" : m < 10 ? "down" : ""}`}>{m}%</span>}</td>
                 </tr>
               );
             })}
-            {!list.length && <tr><td colSpan={6}><div className="empty">{rows.length ? "Nenhum produto encontrado com esse filtro" : "Nenhum produto cadastrado. Use o formulário ao lado."}</div></td></tr>}
+            {!list.length && <tr><td colSpan={7}><div className="empty">{rows.length ? (cat === "baixo" ? "Nenhum produto com estoque baixo" : "Nenhum produto encontrado com esse filtro") : "Nenhum produto cadastrado. Use o formulário ao lado."}</div></td></tr>}
           </tbody></table></div>
         </section>
         <aside className="stack sticky"><section className="panel">
@@ -182,6 +200,16 @@ export function Produtos({ rows }: { rows: Produto[] }) {
                 <input className="input" id="pr-preco" inputMode="decimal" value={F.preco} onChange={e => set({ preco: e.target.value })} /></label>
               <div className="field"><span className="label">Margem</span><b className="mono margin-box" id="pr-mg">{mg == null ? "—" : mg + "%"}</b></div>
             </div>
+            <div className="grid2">
+              <label className="field"><span className="label">Estoque mínimo</span>
+                <input className="input mono" id="pr-min" inputMode="decimal" value={F.minimo} onChange={e => set({ minimo: e.target.value })} placeholder="0" />
+                <span className="hint">Alerta quando o saldo chegar nele. 0 = sem alerta</span></label>
+              {F.id
+                ? <div className="field"><span className="label">Em estoque</span><b className="mono margin-box">{qtdBR(aberto?.stock_qty)}</b><span className="hint">Muda por compra, O.S. ou ajuste</span></div>
+                : <label className="field"><span className="label">Estoque inicial</span>
+                    <input className="input mono" id="pr-ini" inputMode="decimal" value={F.inicial} onChange={e => set({ inicial: e.target.value })} placeholder="0" />
+                    <span className="hint">Quantidade na prateleira hoje</span></label>}
+            </div>
             {F.categoria
               ? <div className="carac"><div className="label" style={{ color: "var(--accent)" }}>Características · {CATN[F.categoria]}</div>{carac}</div>
               : <div className="empty">Escolha a categoria para ver as características</div>}
@@ -190,7 +218,9 @@ export function Produtos({ rows }: { rows: Produto[] }) {
               ? <div className="row"><span>Excluir este produto?</span><button className="key sm danger" onClick={excluir}>Excluir</button><button className="key sm" onClick={() => setPend(false)}>Cancelar</button></div>
               : <button className="key sm" onClick={() => setPend(true)}>Excluir produto</button>)}
           </div>
-        </section></aside>
+        </section>
+        {aberto && <EstoquePanel key={aberto.id} p={aberto} />}
+        </aside>
       </div>
     </main>
   );

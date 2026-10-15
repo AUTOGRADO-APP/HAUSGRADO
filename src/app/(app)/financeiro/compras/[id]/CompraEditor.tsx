@@ -150,14 +150,16 @@ export function CompraEditor({ compra, suppliers, produtos }: { compra: Purchase
         </div>
         <div className="grid3" style={{ marginTop: 12 }}>
           <label className="field"><span className="label">Data da compra *</span><input className="input mono" type="date" id="cp-dc" value={C.dataCompra} onChange={e => set({ dataCompra: e.target.value })} /></label>
-          <label className="field"><span className="label">Data do recebimento</span><input className="input mono" type="date" id="cp-dr" value={C.dataReceb} onChange={e => set({ dataReceb: e.target.value })} /><span className="hint">Deixe vazio se ainda não chegou</span></label>
+          <label className="field"><span className="label">Data do recebimento</span><input className="input mono" type="date" id="cp-dr" value={C.dataReceb} onChange={e => set({ dataReceb: e.target.value })} /><span className="hint">{C.dataReceb ? "Os produtos cadastrados entram no estoque" : "Deixe vazio se ainda não chegou. Ao preencher, os produtos cadastrados entram no estoque"}</span></label>
           <label className="field"><span className="label">Frete de entrega (R$)</span><input className="input" id="cp-frete" inputMode="decimal" value={C.frete} onChange={e => set({ frete: e.target.value })} /></label>
         </div>
         <div className="label" style={{ margin: "18px 0 4px" }}>Peças compradas</div>
         <div className="tbl-wrap"><table className="cp-itens"><thead><tr><th>Descrição</th><th className="num" style={{ width: 80 }}>Qtd</th><th className="num" style={{ width: 130 }}>Valor un.</th><th className="num" style={{ width: 120 }}>Subtotal</th><th style={{ width: 40 }}></th></tr></thead><tbody>
           {C.itens.map((i, ix) => (
             <tr key={ix}>
-              <td><input className="it-in" id={`ci-d-${ix}`} value={i.desc} onChange={e => setItem(ix, { desc: e.target.value })} placeholder="Descrição da peça" />{i.sku && <div className="hint mono" style={{ paddingLeft: 8 }}>{i.sku}</div>}</td>
+              <td><input className="it-in" id={`ci-d-${ix}`} value={i.desc} onChange={e => setItem(ix, { desc: e.target.value })} placeholder="Descrição da peça" />{i.product_id
+                ? <div className="hint" style={{ paddingLeft: 8 }}><span className="mono">{i.sku || "sem SKU"}</span> · produto cadastrado, entra no estoque</div>
+                : i.desc.trim() ? <div className="hint" style={{ paddingLeft: 8 }}>Item avulso: não entra no estoque</div> : null}</td>
               <td><input className="it-in" id={`ci-q-${ix}`} inputMode="decimal" style={{ textAlign: "right" }} value={i.qtd} onChange={e => setItem(ix, { qtd: e.target.value })} aria-label="Quantidade" /></td>
               <td><input className="it-in" id={`ci-v-${ix}`} inputMode="decimal" style={{ textAlign: "right" }} value={i.valor} onChange={e => setItem(ix, { valor: e.target.value })} aria-label="Valor unitário" /></td>
               <td className="num">{brl(linha(i))}</td>

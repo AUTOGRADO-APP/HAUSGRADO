@@ -126,7 +126,9 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
       const patch: Patch = { description: desc, qty: 1, unit_price: Number(x.price) || 0, product_id: x.id, sku: x.sku };
       if (vz) await replace(vz.id, patch); else await insert({ kind: "peca", ...patch });
     }
-    toast(`${x.name} adicionada ao orçamento`, { sound: "ok" });
+    const disp = (x.stock_qty ?? 0) - (x.reserved ?? 0), nova = (ex?.qty ?? 0) + 1;
+    if (x.stock_qty != null && nova > disp) toast(`${x.name} adicionada · estoque disponível: ${String(Math.max(0, disp)).replace(".", ",")}. Confira antes de prometer a peça.`);
+    else toast(`${x.name} adicionada ao orçamento`, { sound: "ok" });
   }
   async function addServico(x: ServOpt) {
     const ex = items.find(i => i.service_id === x.id);
