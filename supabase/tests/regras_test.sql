@@ -22,6 +22,8 @@ select 'T4 atend comissões (0)' t, count(*) from v_commissions;
 update service_orders set status='finalizado' where number=1003;  -- deve falhar
 select 'T5 status OS 1003 continua entrega' t, status from service_orders where number=1003;
 update quotes set discount=10 where number=501; -- deve falhar
+select apply_quote_discount('00000000-0000-4000-8000-0000000000f1', 50, '1234'); -- deve falhar (senha ainda não conferida)
+select 'T35 conferência da senha' t, verify_discount_password('1234');
 select apply_quote_discount('00000000-0000-4000-8000-0000000000f1', 50, 'errada'); -- deve falhar
 select apply_quote_discount('00000000-0000-4000-8000-0000000000f1', 50, '1234');
 select 'T6 total orç 501 (1129.60-50=1079.60)' t, quote_total('00000000-0000-4000-8000-0000000000f1');
@@ -102,7 +104,11 @@ select 'T28 nenhum produto novo cadastrado pelo avulso' t, count(*) from product
 update purchase_items set qty = 8 where product_id is not null and purchase_id = (select id from purchases where invoice_number='EST1');
 select 'T29 editar qtd da compra recebida: estoque 12' t, stock_qty from products order by name limit 1;
 insert into quote_items (quote_id, kind, description, qty, unit_price, product_id)
+  select '00000000-0000-4000-8000-0000000000f2', 'peca', name, 3, price, id from products order by name limit 1; -- falha (aprovado travado)
+update quotes set status = 'rascunho' where id = '00000000-0000-4000-8000-0000000000f2';
+insert into quote_items (quote_id, kind, description, qty, unit_price, product_id)
   select '00000000-0000-4000-8000-0000000000f2', 'peca', name, 3, price, id from products order by name limit 1;
+update quotes set status = 'aprovado' where id = '00000000-0000-4000-8000-0000000000f2';
 select 'T30 reservado 3 (orç aprovado, O.S. no pátio)' t, x.reserved from product_stock_extra() x where x.product_id = (select id from products order by name limit 1);
 select register_receipt('00000000-0000-4000-8000-0000000000e2', jsonb_build_array(jsonb_build_object('method','pix','amount', os_total('00000000-0000-4000-8000-0000000000e2'))), null) is not null;
 select 'T31 finalizou: estoque 9, reservado some' t, p.stock_qty, (select count(*) from product_stock_extra() x where x.product_id = p.id and x.reserved > 0) from products p order by name limit 1;
@@ -111,4 +117,26 @@ select 'T32 desfez: estoque 12' t, stock_qty from products order by name limit 1
 delete from purchases where invoice_number='EST1';
 select 'T33 compra excluída: estoque 4' t, stock_qty from products order by name limit 1;
 select 'T34 movimentos (só o ajuste)' t, kind, qty, reason, created_by_name from stock_movements;
+reset role;
+
+-- ===== REVISÃO 15/10 (migration 20261015120000_review_fixes) =====
+set role authenticated; set request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
+insert into quotes (service_order_id, customer_id, plate, status) values ('00000000-0000-4000-8000-0000000000e2','00000000-0000-4000-8000-0000000000c2','JKL4D56','rascunho'); -- falha (já tem orçamento)
+select 'T36 total da O.S. 1002 continua o do aprovado (>0)' t, os_total('00000000-0000-4000-8000-0000000000e2') > 0;
+update quote_items set unit_price = 1 where quote_id = '00000000-0000-4000-8000-0000000000f2'; -- falha (aprovado travado)
+select register_receipt('00000000-0000-4000-8000-0000000000e2', '[{"method":"pix","amount":1000},{"method":"dinheiro","amount":-1}]', null); -- falha (negativo)
+select register_receipt('00000000-0000-4000-8000-0000000000e2', '[{"method":"credito","amount":1000,"installments":13}]', null); -- falha (parcelas)
+select register_receipt('00000000-0000-4000-8000-0000000000e2', jsonb_build_array(jsonb_build_object('method','pix','amount', os_total('00000000-0000-4000-8000-0000000000e2'))), null) is not null;
+update quotes set status = 'rascunho' where id = '00000000-0000-4000-8000-0000000000f2'; -- falha (O.S. finalizada)
+delete from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f2'; -- falha (O.S. finalizada)
+reset role;
+set role authenticated; set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
+delete from service_orders where id = '00000000-0000-4000-8000-0000000000e2'; -- falha (finalizada)
+select 'T37 O.S. finalizada continua' t, count(*) from service_orders where id = '00000000-0000-4000-8000-0000000000e2';
+select undo_receipt('00000000-0000-4000-8000-0000000000e1', 'orcamento'); -- falha (não finalizada)
+select 'T38 desconto maior que os itens' t;
+update quotes set status = 'rascunho' where id = '00000000-0000-4000-8000-0000000000f1';
+delete from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f1' and kind = 'mao'; -- ok (itens 239,60 ≥ desconto 50)
+update quote_items set unit_price = 1 where quote_id = '00000000-0000-4000-8000-0000000000f1'; -- falha (desconto 50 > 4,00)
+select 'T38 total nunca negativo' t, quote_total('00000000-0000-4000-8000-0000000000f1') >= 0;
 reset role;
