@@ -1,7 +1,7 @@
 -- Testes das regras do banco (RLS, pagamento, desconto, compras, comissões, portal).
 -- Rodar SÓ no banco LOCAL (supabase start → supabase db reset), nunca na produção: cria usuários de teste.
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/regras_test.sql
--- Resultado esperado: linhas T1..T24 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
+-- Resultado esperado: linhas T1..T34 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
 
 \set ON_ERROR_STOP 0
 insert into auth.users values ('11111111-1111-4111-8111-111111111111','master@x'),('22222222-2222-4222-8222-222222222222','admin@x'),('33333333-3333-4333-8333-333333333333','atend@x'),('44444444-4444-4444-8444-444444444444','outro@x');
@@ -78,4 +78,37 @@ select 'T22 portal ok' t, (portal_get(portal_token, '+55 (61) 99123-4567'))->'qu
 select portal_decide_quote(portal_token, '61991234567', 'aprovado') from service_orders where number=1001;
 select 'T23 OS 1001 aprovada pelo cliente' t, status from service_orders where number=1001;
 select text from service_order_history where service_order_id='00000000-0000-4000-8000-0000000000e1' order by id;
+reset role;
+
+-- ===== ESTOQUE (migration 20261015000000_stock) =====
+set role authenticated; set request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
+update products set stock_qty = 50 where sku is not null; -- falha (só por movimentação)
+insert into stock_movements (shop_id, product_id, qty, kind) select shop_id, id, 5, 'ajuste' from products limit 1; -- falha (RLS)
+select 'T25 atend ajusta inventário (+4 → 4)' t, adjust_stock((select id from products order by name limit 1), 4, 'Inventário');
+select adjust_stock((select id from products order by name limit 1), 2, ''); -- falha (sem motivo)
+reset role;
+
+set role authenticated; set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
+insert into purchases (supplier_id, purchased_on, payment_method, invoice_number) select id, current_date, 'pix', 'EST1' from suppliers limit 1;
+insert into purchase_items (purchase_id, description, qty, unit_cost, product_id, position)
+  select (select id from purchases where invoice_number='EST1'), name, 6, 33.33, id, 0 from products order by name limit 1;
+insert into purchase_items (purchase_id, description, qty, unit_cost, position)
+  select id, 'Peça avulsa sem cadastro', 9, 10, 1 from purchases where invoice_number='EST1';
+select 'T26 compra não recebida: estoque 4, a caminho 6' t, p.stock_qty, x.incoming
+  from products p join product_stock_extra() x on x.product_id = p.id where p.id = (select id from products order by name limit 1);
+update purchases set received_on = current_date where invoice_number='EST1';
+select 'T27 recebida: estoque 10 (avulso não entra), custo 33.33' t, stock_qty, cost from products order by name limit 1;
+select 'T28 nenhum produto novo cadastrado pelo avulso' t, count(*) from products where name like 'Peça avulsa%';
+update purchase_items set qty = 8 where product_id is not null and purchase_id = (select id from purchases where invoice_number='EST1');
+select 'T29 editar qtd da compra recebida: estoque 12' t, stock_qty from products order by name limit 1;
+insert into quote_items (quote_id, kind, description, qty, unit_price, product_id)
+  select '00000000-0000-4000-8000-0000000000f2', 'peca', name, 3, price, id from products order by name limit 1;
+select 'T30 reservado 3 (orç aprovado, O.S. no pátio)' t, x.reserved from product_stock_extra() x where x.product_id = (select id from products order by name limit 1);
+select register_receipt('00000000-0000-4000-8000-0000000000e2', jsonb_build_array(jsonb_build_object('method','pix','amount', os_total('00000000-0000-4000-8000-0000000000e2'))), null) is not null;
+select 'T31 finalizou: estoque 9, reservado some' t, p.stock_qty, (select count(*) from product_stock_extra() x where x.product_id = p.id and x.reserved > 0) from products p order by name limit 1;
+select undo_receipt('00000000-0000-4000-8000-0000000000e2', 'servico');
+select 'T32 desfez: estoque 12' t, stock_qty from products order by name limit 1;
+delete from purchases where invoice_number='EST1';
+select 'T33 compra excluída: estoque 4' t, stock_qty from products order by name limit 1;
+select 'T34 movimentos (só o ajuste)' t, kind, qty, reason, created_by_name from stock_movements;
 reset role;

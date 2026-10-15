@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { brl } from "@/lib/rules.ts";
 import { CATN, CATS } from "@/lib/labels.ts";
 import { prodResumo } from "@/lib/produtos.ts";
+import { qtdBR } from "@/lib/estoque.ts";
 
 export interface PickProduct {
   id: string; name: string; manufacturer: string | null; sku: string | null; ean: string | null;
   cost: number; price: number; category: string;
   viscosity?: string | null; api?: string | null; volume?: string | null; application_spec?: string | null;
   application_brands?: string[] | null; additive_type?: string | null;
+  /** estoque (orçamento): saldo e reservado por outros orçamentos aprovados */
+  stock_qty?: number; reserved?: number;
 }
 
 export function ProductPicker({ produtos, qtd, onAdd, onClose, modo = "orcamento" }: {
@@ -53,11 +56,15 @@ export function ProductPicker({ produtos, qtd, onAdd, onClose, modo = "orcamento
           {list.map(x => {
             const n = qtd[x.id] || 0;
             const res = prodResumo(x);
+            const temEst = !compra && x.stock_qty != null;
+            const disp = (x.stock_qty ?? 0) - (x.reserved ?? 0);
+            const falta = temEst && n > disp;
             return (
               <div key={x.id} className="pk-it">
                 <div style={{ minWidth: 0 }}>
                   <b>{x.name}</b>
                   <div className="hint">{x.manufacturer || "—"} · <span className="mono">{x.sku || "sem SKU"}</span>{res ? " · " + res : ""}</div>
+                  {temEst && <div className={`pk-est ${disp <= 0 || falta ? "bad" : ""}`}>Estoque {qtdBR(x.stock_qty)}{x.reserved ? ` · reservado ${qtdBR(x.reserved)}` : ""} · disponível {qtdBR(disp)}{falta ? ` · faltam ${qtdBR(n - disp)} para este orçamento` : ""}</div>}
                 </div>
                 <span className="chip">{CATN[x.category] || ""}</span>
                 <b className="mono pk-preco">{brl(Number(compra ? x.cost : x.price) || 0)}{compra && <small className="hint" style={{ display: "block", textAlign: "right" }}>custo</small>}</b>

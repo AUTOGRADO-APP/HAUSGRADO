@@ -729,3 +729,18 @@ body:has(.side) .lcd-tick{flex:1 1 auto;width:auto;max-width:none;min-width:260p
 }
 
 @media (prefers-reduced-motion:reduce){.side,.side.open{transition:none}}
+
+/* ---------- Estoque (Produtos, pop-up de peça, lembretes) ---------- */
+.count.bad{background:var(--danger);color:#fff}
+.est-neg{color:var(--danger)}
+.est-chip{font-size:8.5pt;padding:1px 8px;margin-top:3px}
+.est-td{white-space:nowrap}
+.est-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:1.2rem;padding:12px 14px}
+.est-grid strong{font-size:14pt}
+.est-grid .est-n.neg{color:var(--danger)}
+.est-aj{background:var(--bg);border:1px solid var(--border);border-radius:1.2rem;padding:14px}
+.est-mov{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;min-width:0}
+.est-in{color:var(--success)}
+.est-out{color:var(--danger)}
+.pk-est{font-family:var(--font-num);font-size:9pt;font-weight:700;color:var(--muted)}
+.pk-est.bad{color:var(--danger)}

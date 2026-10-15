@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client.ts";
 import { brl } from "@/lib/rules.ts";
 import { PAPEIS, dataBR, iniciais, primeiroNome, ymd } from "@/lib/labels.ts";
 import { msgLemb, waURL } from "@/lib/msgs.ts";
+import { qtdBR } from "@/lib/estoque.ts";
 import { poseFor } from "@/lib/sprite.ts";
 import { copyText, errMsg, getTheme, setSom, setTheme, sfx, somOn, toast } from "@/lib/ui.ts";
 import type { ShellData, ShellBill } from "@/lib/types.ts";
@@ -69,6 +70,8 @@ function tickMsgs(d: ShellData) {
   const am = d.amanha.filter(a => !a.reminder_sent_at).length;
   if (am) m.push(`${am} lembrete${am > 1 ? "s" : ""} de agendamento para enviar · toque no sino`);
   if (d.hojeAgendados) m.push(`Hoje tem ${d.hojeAgendados} cliente${d.hojeAgendados > 1 ? "s" : ""} agendado${d.hojeAgendados > 1 ? "s" : ""}`);
+  const eb = d.estoqueBaixo.length;
+  if (eb) m.push(eb === 1 ? `Estoque baixo: ${d.estoqueBaixo[0].name}` : `${eb} produtos com estoque baixo · veja em Produtos`);
   if (fin) {
     if (d.contas.length) m.push(`${d.contas.length} conta${d.contas.length > 1 ? "s" : ""} a pagar vencendo · total ${brl(d.contas.reduce((a, c) => a + c.amount, 0))}`);
     m.push(`Faturamento do mês: ${brl(d.fatMes)} · ticket médio ${brl(d.ticketMes)}`);
@@ -175,6 +178,19 @@ function LembPanel({ data, onClose }: { data: ShellData; onClose: () => void }) 
             {data.contas.length ? data.contas.map(d => <BillCard key={d.id} d={d} onPay={pay} quando={d.due_date < hoje ? "Vencida" : d.due_date === hoje ? "Vence hoje" : "Vence amanhã"} />)
               : <div className="empty">Nenhuma conta para hoje ou amanhã</div>}
           </div>
+          {data.estoqueBaixo.length > 0 && <>
+            <div className="label lemb-t" style={{ marginTop: 18 }}>Estoque baixo · {data.estoqueBaixo.length}</div>
+            <div className="stack" style={{ gap: 10 }}>
+              {data.estoqueBaixo.slice(0, 6).map(p => (
+                <div className="ag-it" key={p.id}>
+                  <div className="row" style={{ justifyContent: "space-between" }}><b>{p.name}</b>
+                    <span className="chip bad">{p.stock_qty <= 0 ? "Sem estoque" : "Estoque baixo"}</span></div>
+                  <span className="hint mono">Em estoque {qtdBR(p.stock_qty)}{p.min_stock > 0 ? ` · mínimo ${qtdBR(p.min_stock)}` : ""}</span>
+                </div>
+              ))}
+              <div className="row"><Link className="key sm" href="/produtos?f=baixo" onClick={onClose}>Ver em Produtos{data.estoqueBaixo.length > 6 ? ` (+${data.estoqueBaixo.length - 6})` : ""}</Link></div>
+            </div>
+          </>}
         </div>}
       </div>
     </section>
@@ -254,7 +270,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
 
   const hoje = ymd();
   const pend = data.amanha.filter(a => !a.reminder_sent_at);
-  const nBell = pend.length + (fin ? data.contas.length : 0);
+  const nBell = pend.length + (fin ? data.contas.length + data.estoqueBaixo.length : 0);
   const venc = fin && data.contas.some(c => c.due_date < hoje);
   const pose = poseFor(path);
   const cur = (href: string) => path === href || path.startsWith(href + "/");
@@ -275,7 +291,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
             <Lcd data={data} />
             <MascotButton pose={pose} />
             <button className={`bell ${nBell ? "hot" : ""} ${lemb ? "on" : ""}`} title="Lembretes"
-              aria-label={`Lembretes: ${pend.length} agendamento(s)${fin ? `, ${data.contas.length} conta(s) a pagar` : ""}`}
+              aria-label={`Lembretes: ${pend.length} agendamento(s)${fin ? `, ${data.contas.length} conta(s) a pagar, ${data.estoqueBaixo.length} produto(s) com estoque baixo` : ""}`}
               onClick={() => { setLemb(v => { if (!v) { sfx("bell"); scrollTo(0, 0); } return !v; }); }}>
               {IBELL}{nBell > 0 && <span className={`bell-n ${venc ? "red" : ""}`}>{nBell}</span>}
             </button>
