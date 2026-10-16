@@ -11,16 +11,19 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
   const b = await loadQuote(id);
   if (!b) notFound();
   const sb = await createClient();
-  const [{ data: oss }, { data: prods }, { data: servs }, { data: pw }, { data: extra }] = await Promise.all([
+  const [{ data: oss }, { data: prods }, { data: servs }, { data: pw }, { data: extra }, { data: ativos }] = await Promise.all([
     sb.from("service_orders").select("id, number, plate, model, status, customer_id, customers(name)").order("number", { ascending: false }),
     sb.from("products").select("id, name, manufacturer, sku, ean, cost, price, category, viscosity, api, volume, application_spec, application_brands, additive_type, stock_qty").order("name"),
     sb.from("service_catalog").select("id, name, description, price").eq("active", true).order("name"),
     sb.rpc("discount_password_status"),
     sb.rpc("product_stock_extra"),
+    sb.from("quotes").select("service_order_id").neq("status", "recusado").neq("id", id).not("service_order_id", "is", null),
   ]);
+  // cada O.S. tem um orçamento ativo: não oferece O.S. que já têm outro (o banco também barra)
+  const comOrc = new Set(((ativos ?? []) as { service_order_id: string }[]).map(x => x.service_order_id));
   type OSRow = Omit<OSOpt, "customer_name"> & { customers: { name: string } | { name: string }[] | null };
   const osList: OSOpt[] = ((oss ?? []) as unknown as OSRow[])
-    .filter(o => o.status !== "finalizado" || o.id === b.quote.service_order_id)
+    .filter(o => o.id === b.quote.service_order_id || (o.status !== "finalizado" && !comOrc.has(o.id)))
     .map(({ customers, ...o }) => ({ ...o, customer_name: (Array.isArray(customers) ? customers[0]?.name : customers?.name) || "" }));
   // Reservado por OUTROS orçamentos: se este já está aprovado (O.S. no pátio), as peças dele não contam contra ele mesmo.
   const res = new Map(((extra ?? []) as { product_id: string; reserved: number }[]).map(x => [x.product_id, Number(x.reserved) || 0]));

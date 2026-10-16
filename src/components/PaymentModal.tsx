@@ -46,12 +46,15 @@ export function PaymentModal({ os, fees, hasPassword, onClose, onDone }: {
     sfx("tap");
   }
 
-  async function checkSenha(v: string) {
-    setSenha(v);
-    if (v.length < 4) return;
-    const { data, error } = await sb.rpc("verify_discount_password", { p_password: v });
+  // Confere só quando a pessoa pede (botão ou Enter): cada conferência conta no limite de 5 erros em 15 min.
+  async function conferir() {
+    if (!senha || busy || auth) return;
+    setBusy(true);
+    const { data, error } = await sb.rpc("verify_discount_password", { p_password: senha });
+    setBusy(false);
     if (error) return toast(errMsg(error), { err: true });
-    if (data) { setAuth(true); sfx("ok"); }
+    if (data === true) { setAuth(true); sfx("ok"); }
+    else toast("Senha de autorização incorreta", { err: true });
   }
 
   async function confirm() {
@@ -91,8 +94,12 @@ export function PaymentModal({ os, fees, hasPassword, onClose, onDone }: {
             {rs.falta > 0 && soma > 0 && <div className="pag-auth">
               <div className="row" style={{ gap: 8, alignItems: "flex-start" }}><span className="auth-ic">{IKEY}</span><div style={{ flex: 1, minWidth: 0 }}><b>Desconto exige autorização</b><div className="hint">A O.S. só pode ser finalizada com o valor total. Para receber menos, digite a senha de autorização criada pelo master.</div></div></div>
               {hasPassword ? <>
-                <input className="input" type="password" autoComplete="off" placeholder="Senha de autorização" value={senha} disabled={auth} onChange={e => checkSenha(e.target.value)} autoFocus />
-                {auth && <span className="chip ok">Autorizado</span>}
+                <div className="row" style={{ flexWrap: "nowrap" }}>
+                  <input className="input" type="password" autoComplete="off" placeholder="Senha de autorização" value={senha} disabled={auth}
+                    onChange={e => setSenha(e.target.value)} onKeyDown={e => { if (e.key === "Enter") void conferir(); }} style={{ flex: 1 }} />
+                  {auth ? <span className="chip ok">Autorizado</span>
+                    : <button type="button" className="key accent" onClick={() => void conferir()} aria-disabled={!senha || busy || undefined}>Conferir</button>}
+                </div>
               </> : <span className="hint" style={{ color: "var(--danger)" }}>Nenhuma senha de autorização foi criada. Peça ao usuário master para criar em Configurações.</span>}
             </div>}
           </> : <div className="pag-sum"><span className="dl up">{rs.txt}</span><span className="hint">Ex.: garantia sem cobrança</span></div>}

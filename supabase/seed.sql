@@ -68,8 +68,8 @@ on conflict (id) do nothing;
 
 insert into public.quotes (id, shop_id, service_order_id, customer_id, plate, status) values
  ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000e1', '00000000-0000-4000-8000-0000000000c1', 'PAB1C23', 'enviado'),
- ('00000000-0000-4000-8000-0000000000f2', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000e2', '00000000-0000-4000-8000-0000000000c2', 'JKL4D56', 'aprovado'),
- ('00000000-0000-4000-8000-0000000000f3', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000e3', '00000000-0000-4000-8000-0000000000c3', 'OGA7E89', 'aprovado')
+ ('00000000-0000-4000-8000-0000000000f2', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000e2', '00000000-0000-4000-8000-0000000000c2', 'JKL4D56', 'rascunho'),
+ ('00000000-0000-4000-8000-0000000000f3', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000e3', '00000000-0000-4000-8000-0000000000c3', 'OGA7E89', 'rascunho')
 on conflict (id) do nothing;
 
 insert into public.quote_items (shop_id, quote_id, kind, description, details, qty, unit_price, position) values
@@ -78,3 +78,7 @@ insert into public.quote_items (shop_id, quote_id, kind, description, details, q
  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000f2', 'peca', 'Pastilha de freio dianteira', null, 1, 149.90, 0),
  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000f2', 'mao', 'Troca de pastilhas', null, 1, 120.00, 1),
  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000f3', 'mao', 'Check list viagem', 'Inspeção de 40 itens: freios, pneus, suspensão, fluidos, iluminação, bateria e arrefecimento.', 1, 350.00, 0);
+
+-- Aprova depois de lançar os itens (orçamento aprovado fica travado para edição)
+update public.quotes set status = 'aprovado', decided_at = now(), decided_by = 'oficina'
+ where id in ('00000000-0000-4000-8000-0000000000f2', '00000000-0000-4000-8000-0000000000f3') and status = 'rascunho';

@@ -353,6 +353,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
                   <button type="button" className="key danger sm" onClick={() => void excluirOS()}>Excluir</button>
                   <button type="button" className="key sm" onClick={() => setPend(null)}>Cancelar</button></div>
               : !canDelete ? <span className="hint">Somente administradores podem excluir O.S.</span>
+              : os.status === "finalizado" ? <span className="hint">O.S. finalizada não pode ser excluída: o recebimento dela está no Financeiro.</span>
               : <button type="button" className="key sm" onClick={() => setPend("os-del")}>Excluir OS</button>}
           </section>
         </aside>

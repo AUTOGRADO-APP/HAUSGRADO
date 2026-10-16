@@ -37,6 +37,13 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
   const pend = useRef(new Map<string, { patch: Patch; t: ReturnType<typeof setTimeout> }>());
   const valT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputs = useRef(new Map<string, HTMLInputElement>());
+  // aprovado = travado (volta para Rascunho para editar); O.S. finalizada = travado de vez (o banco garante)
+  const osFin = o?.status === "finalizado";
+  const locked = q.status === "aprovado" || osFin;
+  const travado = () => {
+    toast(osFin ? "A O.S. foi finalizada: este orçamento não pode mais mudar." : "Orçamento aprovado: para alterar, volte para Rascunho.", { err: true });
+    return true;
+  };
 
   // quando o servidor manda dados novos (refresh/tempo real), sincroniza o que não está sendo editado
   useEffect(() => {
@@ -79,6 +86,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
   useEffect(() => () => { void flushRef.current(); }, []);
 
   function edit(id: string, f: "description" | "qty" | "unit_price", v: string) {
+    if (locked) return;
     setItems(its => its.map(i => {
       if (i.id !== id) return i;
       if (f === "description") return { ...i, description: v };
@@ -92,6 +100,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
 
   const nextPos = () => items.reduce((m, i) => Math.max(m, i.position), -1) + 1;
   async function insert(row: Omit<Patch, "kind"> & { kind: "peca" | "mao" }, focus = false) {
+    if (locked && travado()) return null;
     const { data, error } = await sb.from("quote_items").insert({ quote_id: q.id, qty: 1, position: nextPos(), ...row }).select(COLS).single();
     if (error || !data) { toast(errMsg(error), { err: true }); return null; }
     const it = toL({ ...(data as QItem), qty: Number(data.qty), unit_price: Number(data.unit_price) });
@@ -100,6 +109,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
     return it;
   }
   async function del(id: string) {
+    if (locked && travado()) return;
     const p = pend.current.get(id);
     if (p) { clearTimeout(p.t); pend.current.delete(id); }
     const { error } = await sb.from("quote_items").delete().eq("id", id);
@@ -118,6 +128,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
   const qtdServ = useMemo(() => { const m: Record<string, number> = {}; items.forEach(i => { if (i.service_id) m[i.service_id] = (m[i.service_id] ?? 0) + i.qty; }); return m; }, [items]);
 
   async function addProduto(x: PickProduct) {
+    if (locked && travado()) return;
     const desc = x.name + (x.manufacturer ? " " + x.manufacturer : "");
     const ex = items.find(i => i.product_id === x.id);
     if (ex) await replace(ex.id, { qty: ex.qty + 1 });
@@ -131,6 +142,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
     else toast(`${x.name} adicionada ao orçamento`, { sound: "ok" });
   }
   async function addServico(x: ServOpt) {
+    if (locked && travado()) return;
     const ex = items.find(i => i.service_id === x.id);
     if (ex) await replace(ex.id, { qty: ex.qty + 1 });
     else {
@@ -169,6 +181,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
   }
   async function setStatus(st: QQuote["status"]) {
     if (st === q.status) return;
+    if (osFin && travado()) return;
     const decided = st === "aprovado" || st === "recusado";
     await flush();
     const { error } = await sb.from("quotes").update({ status: st, decided_at: decided ? new Date().toISOString() : null, decided_by: decided ? "oficina" : null }).eq("id", q.id);
@@ -207,11 +220,14 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
       <section className="panel">
         <div className="ph"><h2>Orçamento nº {q.number}</h2><button className="key" onClick={() => go("/orcamentos")}>‹ Lista</button></div>
         <label className="field" style={{ marginBottom: 12 }}><span className="label">Veículo (OS)</span>
-          <select className="input" id="orc-os" value={q.service_order_id ?? ""} onChange={e => void setOS(e.target.value)}>
+          <select className="input" id="orc-os" value={q.service_order_id ?? ""} disabled={locked} onChange={e => void setOS(e.target.value)}>
             <option value="">— escolha o veículo —</option>
             {osList.map(x => <option key={x.id} value={x.id}>{x.plate} · {x.model || ""} · {x.customer_name}</option>)}
           </select>
         </label>
+        {locked && <p className="hint" style={{ margin: "0 0 12px" }}>{osFin
+          ? "A O.S. deste orçamento foi finalizada: ele fica só para consulta."
+          : "Orçamento aprovado: os itens e o desconto ficam travados. Para alterar, volte a situação para Rascunho; o cliente precisa aprovar de novo."}</p>}
         <div className="tbl-wrap"><table className="orc-itens">
           <thead><tr><th style={{ width: 1 }}>Tipo</th><th>Descrição</th><th className="num" style={{ width: 64 }}>Qtd</th><th className="num" style={{ width: 96 }}>Valor un.</th><th className="num" style={{ width: 1 }}>Subtotal</th><th style={{ width: 1 }}></th></tr></thead>
           <tbody>
@@ -220,28 +236,28 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
                 <td><span className="chip">{i.kind === "peca" ? "Peça" : "Mão de obra"}</span></td>
                 <td>
                   <input className="it-in" ref={el => { if (el) inputs.current.set(i.id, el); else inputs.current.delete(i.id); }}
-                    aria-label="Descrição" value={i.description} placeholder="Descrição" onChange={e => edit(i.id, "description", e.target.value)} />
+                    aria-label="Descrição" readOnly={locked} value={i.description} placeholder="Descrição" onChange={e => edit(i.id, "description", e.target.value)} />
                   {i.details && <div className="hint" style={{ padding: "2px 8px 0" }}>{i.details}</div>}
                 </td>
-                <td><input className="it-in" aria-label="Quantidade" inputMode="decimal" style={{ textAlign: "right" }} value={i.qtyTxt} onChange={e => edit(i.id, "qty", e.target.value)} /></td>
-                <td><input className="it-in" aria-label="Valor unitário" inputMode="decimal" style={{ textAlign: "right" }} value={i.priceTxt} onChange={e => edit(i.id, "unit_price", e.target.value)} /></td>
+                <td><input className="it-in" aria-label="Quantidade" readOnly={locked} inputMode="decimal" style={{ textAlign: "right" }} value={i.qtyTxt} onChange={e => edit(i.id, "qty", e.target.value)} /></td>
+                <td><input className="it-in" aria-label="Valor unitário" readOnly={locked} inputMode="decimal" style={{ textAlign: "right" }} value={i.priceTxt} onChange={e => edit(i.id, "unit_price", e.target.value)} /></td>
                 <td className="num">{brl(i.qty * i.unit_price)}</td>
-                <td><button className="del" onClick={() => void del(i.id)} aria-label="Remover item">×</button></td>
+                <td>{!locked && <button className="del" onClick={() => void del(i.id)} aria-label="Remover item">×</button>}</td>
               </tr>
             ))}
           </tbody>
         </table></div>
-        <div className="row" style={{ marginTop: 12 }}>
+        {!locked && <div className="row" style={{ marginTop: 12 }}>
           <button className="key" onClick={() => void insert({ kind: "peca", description: "", unit_price: 0 }, true)}>+ Peça</button>
           <button className="key" onClick={() => void insert({ kind: "mao", description: "Mão de obra", unit_price: 0 }, true)}>+ Mão de obra</button>
           <button className="key accent" onClick={() => { setModal("pecas"); sfx("tap"); }}>+ Peça cadastrada</button>
           <button className="key accent" onClick={() => { setModal("serv"); sfx("tap"); }}>+ Serviço cadastrado</button>
-        </div>
+        </div>}
         <div className="grid2" style={{ marginTop: 14 }}>
           <div className="field"><span className="label">Desconto (R$)</span>
             <div className="row" style={{ flexWrap: "nowrap" }}>
               <span className="input mono" style={{ display: "flex", alignItems: "center", minHeight: 42 }}>{brl(q.discount || 0)}</span>
-              <button className="key sm" onClick={() => setModal("desc")} title="Exige senha de autorização">{IKEY}{q.discount ? "Alterar" : "Aplicar"}</button>
+              {!locked && <button className="key sm" onClick={() => setModal("desc")} title="Exige senha de autorização">{IKEY}{q.discount ? "Alterar" : "Aplicar"}</button>}
             </div>
             <span className="hint">Exige a senha de autorização do administrador</span>
           </div>
@@ -273,7 +289,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
           <div className="ph"><h2>Situação</h2></div>
           <div className="grid2">
             {(Object.entries(ORC_ST) as [QQuote["status"], string][]).map(([k, l]) => (
-              <button key={k} className={`key sm ${q.status === k ? "on" : ""}`} onClick={() => void setStatus(k)}>{l}</button>
+              <button key={k} className={`key sm ${q.status === k ? "on" : ""}`} aria-disabled={osFin || undefined} onClick={() => void setStatus(k)}>{l}</button>
             ))}
           </div>
           <p className="hint" style={{ margin: "10px 0 0" }}>Ao aprovar, o carro passa automaticamente de Orçamento para Aprovado no quadro. O cliente também pode aprovar pelo link.</p>
