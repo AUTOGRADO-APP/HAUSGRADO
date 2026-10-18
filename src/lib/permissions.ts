@@ -15,6 +15,7 @@ export const NAV: NavItem[] = [
       { href: "/financeiro/despesas", label: "Despesas", roles: FIN },
       { href: "/financeiro/fornecedores", label: "Fornecedores", roles: FIN },
       { href: "/financeiro/comissoes", label: "Comissões", roles: FIN },
+      { href: "/financeiro/metas", label: "Metas", roles: FIN },
       { href: "/financeiro/calendario", label: "Calendário financeiro", roles: FIN },
     ],
   },

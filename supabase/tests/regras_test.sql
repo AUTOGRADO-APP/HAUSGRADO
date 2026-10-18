@@ -140,3 +140,18 @@ delete from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f1' 
 update quote_items set unit_price = 1 where quote_id = '00000000-0000-4000-8000-0000000000f1'; -- falha (desconto 50 > 4,00)
 select 'T38 total nunca negativo' t, quote_total('00000000-0000-4000-8000-0000000000f1') >= 0;
 reset role;
+
+-- ===== METAS (T39–T41) =====
+set role authenticated; set request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
+select 'T39 atend não vê metas (0)' t, count(*) from revenue_goals;
+insert into revenue_goals (month, goal, super_goal) values ('2030-01-01', 100, 200); -- falha (atendente)
+reset role;
+set role authenticated; set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
+insert into revenue_goals (month, goal, super_goal) values ('2030-01-01', 100, 200);
+insert into revenue_goals (month, goal, super_goal) values ('2030-02-01', 300, 200); -- falha (super < meta)
+insert into revenue_goals (month, goal, super_goal) values ('2030-03-15', 100, 200); -- falha (não é dia 1)
+select 'T40 admin cria meta (1 de 2030)' t, count(*) from revenue_goals where month >= '2030-01-01';
+reset role;
+set role authenticated; set request.jwt.claim.sub = '44444444-4444-4444-8444-444444444444';
+select 'T41 outra oficina não vê (0)' t, count(*) from revenue_goals where month >= '2030-01-01';
+reset role;

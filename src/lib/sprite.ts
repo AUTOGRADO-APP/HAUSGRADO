@@ -3,7 +3,7 @@
 const MP: Record<string, string> = {K:'#151010',B:'#2a201d',b:'#45352f',T:'#b8652a',t:'#dd8e44',W:'#ffffff',E:'#f6f1ea',N:'#0b0808',P:'#e2667a',
   BL:'#2f5fa8',bl:'#4a7bc8',GR:'#7f878f',gr:'#c3c9ce',WD:'#6e4325',wd:'#94603a',SC:'#1d2730',OR:'#FF5C00',or:'#c94a00',Y:'#f2c230',R:'#d64545',G:'#2FAE60',PA:'#f7f3ea',LC:'#a9b892',GD:'#c9a15a',gd:'#a8803e'};
 
-export const POSE: Record<string, string> = {gestao:'gestao',quadro:'mecanico',os:'mecanico',pasta:'papel',agenda:'agenda',clientes:'acena',orcamentos:'orcamento',orcpdf:'papel',guiapdf:'prancheta',historico:'lupa',comissoes:'grana',config:'obra',entrada:'prancheta',login:'acena',produtos:'oleo',servcat:'mecanico',fin_entradas:'grana',fin_saidas:'orcamento',fin_compra:'orcamento',fin_cal:'agenda',fin_desp:'orcamento',fin_forn:'acena'};
+export const POSE: Record<string, string> = {gestao:'gestao',quadro:'mecanico',os:'mecanico',pasta:'papel',agenda:'agenda',clientes:'acena',orcamentos:'orcamento',orcpdf:'papel',guiapdf:'prancheta',historico:'lupa',comissoes:'grana',config:'obra',entrada:'prancheta',login:'acena',produtos:'oleo',servcat:'mecanico',fin_entradas:'grana',fin_saidas:'orcamento',fin_compra:'orcamento',fin_cal:'agenda',fin_desp:'orcamento',fin_forn:'acena',fin_metas:'grana'};
 export const FALAS: Record<string, string[]> = {gestao:['Fechando as contas do mês. Não me distraia!','Ticket médio subindo? Au au!','Calculadora na pata, café na mesa.'],
   mecanico:['Bora tirar esses carros do pátio!','Chave 10 na mão, cadê o próximo?','Carro parado é carro triste. Au!'],
   agenda:['Amanhã tem cliente, já mandou o lembrete?','Agenda cheia, rabo abanando!'],
@@ -68,7 +68,7 @@ export function poseFor(path: string): string {
   const m: [RegExp, string][] = [[/^\/gestao/, 'gestao'], [/^\/os\/nova/, 'entrada'], [/^\/os\/[^/]+\/pasta/, 'pasta'], [/^\/os\//, 'os'], [/^\/quadro/, 'quadro'],
     [/^\/calendario/, 'agenda'], [/^\/clientes/, 'clientes'], [/^\/orcamentos\/[^/]+\/guia/, 'guiapdf'], [/^\/orcamentos\/[^/]+\/pdf/, 'orcpdf'], [/^\/orcamentos/, 'orcamentos'],
     [/^\/historico/, 'historico'], [/^\/financeiro\/comissoes/, 'comissoes'], [/^\/financeiro\/entradas/, 'fin_entradas'], [/^\/financeiro\/compras/, 'fin_saidas'],
-    [/^\/financeiro\/despesas/, 'fin_desp'], [/^\/financeiro\/fornecedores/, 'fin_forn'], [/^\/financeiro\/calendario/, 'fin_cal'], [/^\/config/, 'config'],
+    [/^\/financeiro\/despesas/, 'fin_desp'], [/^\/financeiro\/fornecedores/, 'fin_forn'], [/^\/financeiro\/calendario/, 'fin_cal'], [/^\/financeiro\/metas/, 'fin_metas'], [/^\/config/, 'config'],
     [/^\/produtos/, 'produtos'], [/^\/servicos/, 'servcat'], [/^\/login/, 'login']];
   const v = m.find(([re]) => re.test(path))?.[1] ?? 'login';
   return POSE[v] || 'acena';
