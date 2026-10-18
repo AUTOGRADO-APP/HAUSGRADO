@@ -37,9 +37,10 @@ html[data-theme="haus"] .gear:hover,html[data-theme="haus"] .gear.on{color:var(-
 /* badge de seção (01, 02…) e número das colunas do quadro: estrutura, não ação */
 html[data-theme="haus"] .ph h2::before{background:var(--accent-2);color:var(--accent-2-ink)}
 html[data-theme="haus"] .col-h .t i,
-html[data-theme="haus"] .col-tabs button i,
-html[data-theme="haus"] .col-tabs button.on i{color:var(--accent-2-text)}
-html[data-theme="haus"] .col-tabs button.on b{background:var(--accent-2);color:var(--accent-2-ink)}
+html[data-theme="haus"] .col-tabs button i{color:var(--accent-2-text)}
+html[data-theme="haus"] .col-tabs button.on{background:var(--accent-2);border-color:var(--accent-2);color:var(--accent-2-ink)}
+html[data-theme="haus"] .col-tabs button.on i{color:var(--accent-2-ink);opacity:.8}
+html[data-theme="haus"] .col-tabs button.on b{background:rgba(255,255,255,.22);color:#fff}
 html[data-theme="haus"] .col.over{border-color:var(--accent-2);box-shadow:var(--ring)}
 
 /* abas e etapa atual da O.S. */
@@ -131,6 +132,7 @@ html[data-theme="haus"] .modal{box-shadow:0 20px 60px rgba(0,0,0,.6)}
   body:has(.side) .top-r{gap:8px}
   body:has(.side) .lcd-tick{min-width:140px}
   .top-r .nova{flex:none}
-  .clock{min-width:0;padding:6px 12px}
-  .clock span{white-space:nowrap;font-size:8.5pt}
+  .top-r .gear,.top-r .bell{width:46px}
+  .clock{min-width:0;padding:6px 10px}
+  .clock span{white-space:nowrap;font-size:8pt}
 }
