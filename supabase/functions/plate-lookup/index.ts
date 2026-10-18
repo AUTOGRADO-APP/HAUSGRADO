@@ -1,15 +1,16 @@
 // Hausgrado · Edge Function "plate-lookup" (consulta de placa)
-// Só para usuários logados. Consulta o cache (30 dias) e, se não tiver, o provedor contratado.
-// O token do provedor fica em segredo da função — nunca no navegador.
+// Só para usuários logados. Consulta o cache (30 dias) e, se não tiver, a API Placa FIPE
+// (https://doc.placafipe.com.br/api/getplaca.html).
+// O token fica no servidor: o master grava em Configurações (shop_secrets.plate_api_token,
+// que o app não consegue ler) ou, se preferir, num segredo da função:
 //
-//   supabase secrets set PLATE_API_URL="https://api.provedor.com/placa/{plate}" PLATE_API_TOKEN="..."
+//   supabase secrets set PLATE_API_TOKEN="..."      (opcional; tem prioridade sobre o da tela)
 //   supabase functions deploy plate-lookup
 //
 // POST { plate: "ABC1D23" } → { make, model, year, color, fuel } | { error }
-//
-// ATENÇÃO: o formato de resposta muda de provedor para provedor. Ajuste a função normalize()
-// para o provedor escolhido (o protótipo usa os campos make/model/year/color/fuel).
 import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const API_URL = "https://api.placafipe.com.br/getplaca";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -19,15 +20,36 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
+// "RENAULT" → "Renault", "MERCEDES-BENZ" → "Mercedes-Benz"; siglas curtas (BMW, BYD, GWM, KIA) ficam em maiúsculas
+const titulo = (s: string) =>
+  s.toLowerCase().replace(/(^|[\s/-])([a-zà-ú])/g, (_, a, b) => a + b.toUpperCase());
+const marca = (s: string) => (s.length <= 3 ? s.toUpperCase() : titulo(s));
+
+function combustivel(s: string) {
+  const t = s.toLowerCase();
+  if (/(álcool|alcool|etanol)/.test(t) && /gasolina/.test(t)) return "Flex";
+  return titulo(s);
+}
+
 // deno-lint-ignore no-explicit-any
-function normalize(raw: any) {
+function normalize(v: any) {
+  const str = (x: unknown) => (x == null ? "" : String(x).trim());
+  const ano = str(v.ano), anoMod = str(v.ano_modelo);
   return {
-    make: raw.marca ?? raw.make ?? raw.MARCA ?? null,
-    model: raw.modelo ?? raw.model ?? raw.MODELO ?? null,
-    year: raw.ano && raw.anoModelo ? `${raw.ano}/${raw.anoModelo}` : (raw.ano ?? raw.year ?? null),
-    color: raw.cor ?? raw.color ?? null,
-    fuel: raw.combustivel ?? raw.fuel ?? null,
+    make: str(v.marca) ? marca(str(v.marca)) : null,
+    model: str(v.modelo) || null,
+    year: ano && anoMod ? `${ano}/${anoMod}` : (ano || anoMod || null),
+    color: str(v.cor) ? titulo(str(v.cor)) : null,
+    fuel: str(v.combustivel) ? combustivel(str(v.combustivel)) : null,
   };
+}
+
+// Códigos de retorno da Placa FIPE (https://doc.placafipe.com.br/api/codigos.html)
+function erroApi(codigo: number) {
+  if (codigo === 759 || codigo === 763) return { msg: "Placa não encontrada. Preencha manualmente.", status: 404 };
+  if (codigo === 3974 || codigo === 4862)
+    return { msg: "Limite diário de consultas atingido ou token não aceito. Preencha manualmente.", status: 429 };
+  return { msg: "Serviço de placas indisponível. Preencha manualmente.", status: 502 };
 }
 
 Deno.serve(async (req) => {
@@ -49,20 +71,39 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
+  const { data: prof } = await admin.from("profiles").select("shop_id, active").eq("id", u.user.id).maybeSingle();
+  if (!prof?.active) return json({ error: "Faça login." }, 401);
+
   const { data: cached } = await admin.from("plate_cache").select("data, fetched_at").eq("plate", plate).maybeSingle();
   if (cached && Date.now() - new Date(cached.fetched_at).getTime() < 30 * 864e5) return json({ ...cached.data, cached: true });
 
-  const url = Deno.env.get("PLATE_API_URL");
-  const token = Deno.env.get("PLATE_API_TOKEN");
-  if (!url || !token) return json({ error: "Consulta de placa não configurada. Preencha manualmente." }, 503);
+  let token = Deno.env.get("PLATE_API_TOKEN") ?? "";
+  if (!token) {
+    const { data: sec } = await admin.from("shop_secrets").select("plate_api_token").eq("shop_id", prof.shop_id).maybeSingle();
+    token = sec?.plate_api_token ?? "";
+  }
+  if (!token) return json({ error: "Consulta de placa não configurada. Preencha manualmente." }, 503);
 
   try {
-    const r = await fetch(url.replace("{plate}", plate), { headers: { Authorization: `Bearer ${token}` } });
-    if (!r.ok) return json({ error: "Placa não encontrada. Preencha manualmente." }, 404);
-    const data = normalize(await r.json());
+    const r = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ placa: plate, token }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const body = await r.json().catch(() => null);
+    const codigo = Number(body?.codigo);
+    if (codigo !== 1 || !body?.informacoes_veiculo) {
+      const e = erroApi(codigo);
+      console.error("placafipe", plate, r.status, codigo, body?.msg);
+      return json({ error: e.msg }, e.status);
+    }
+    const data = normalize(body.informacoes_veiculo);
+    if (!data.make && !data.model) return json({ error: "Placa não encontrada. Preencha manualmente." }, 404);
     await admin.from("plate_cache").upsert({ plate, data, fetched_at: new Date().toISOString() });
     return json(data);
-  } catch {
+  } catch (e) {
+    console.error("placafipe", plate, String(e));
     return json({ error: "Serviço de placas indisponível. Preencha manualmente." }, 502);
   }
 });
