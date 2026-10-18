@@ -14,9 +14,9 @@ export interface CliRow {
 interface Form { id: string | null; nome: string; telefone: string; doc: string; cep: string }
 const novo = (): Form => ({ id: null, nome: "", telefone: "", doc: "", cep: "" });
 
-export function Clientes({ rows }: { rows: CliRow[] }) {
+export function Clientes({ rows, buscaInicial = "" }: { rows: CliRow[]; buscaInicial?: string }) {
   const router = useRouter();
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useState(buscaInicial);
   const [f, setF] = useState<Form>(novo);
   const [salvando, setSalvando] = useState(false);
 

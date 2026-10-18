@@ -13,6 +13,8 @@ import { Plate } from "@/components/Plate.tsx";
 import { PaymentModal } from "@/components/PaymentModal.tsx";
 import { MicButton, juntarDitado } from "@/components/MicButton.tsx";
 import { PhotoSlot } from "@/components/os-slot.tsx";
+import { defaultTab, nextStep, type QuoteStatus } from "@/lib/proximo.ts";
+import { IMIC } from "@/components/icons.tsx";
 
 export interface OSData {
   id: string; number: number; plate: string; make: string | null; model: string | null; year: string | null; color: string | null; fuel: string | null;
@@ -38,7 +40,8 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
 }) {
   const sb = useMemo(() => createClient(), []);
   const router = useRouter();
-  const [aba, setAba] = useState("avarias");
+  const [aba, setAba] = useState(() => defaultTab(os.status));
+  const [dadosAberto, setDadosAberto] = useState(false);
   const [pend, setPend] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [enviando, setEnviando] = useState(0);
@@ -160,6 +163,30 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
     await hist(`Novo registro em ${ABA_NOME[aba]}`);
     setFocar(true); router.refresh();
   }
+  // barra do celular: "Ditar" grava um registro só com texto na aba aberta, frase por frase
+  const ditado = useRef<{ id: string | null; text: string; fila: Promise<void> }>({ id: null, text: "", fila: Promise.resolve() });
+  function ditarNota(t: string) {
+    const d = ditado.current, tab = aba;
+    d.text = juntarDitado(d.text, t);
+    const text = d.text;
+    d.fila = d.fila.then(async () => {
+      if (!d.id) {
+        const { data, error } = await sb.from("service_order_records").insert({ shop_id: shopId, service_order_id: os.id, tab, description: text }).select("id").single();
+        if (error) { toast(errMsg(error), { err: true }); return; }
+        d.id = (data as { id: string }).id;
+        await hist(`Novo registro em ${ABA_NOME[tab]}`);
+      } else {
+        const { error } = await sb.from("service_order_records").update({ description: text }).eq("id", d.id);
+        if (error) toast(errMsg(error), { err: true });
+      }
+      router.refresh();
+    });
+  }
+  function fimDitado() {
+    const d = ditado.current;
+    void d.fila.then(() => { if (d.id) toast(`Anotação salva em ${ABA_NOME[aba]}`, { sound: "ok" }); ditado.current = { id: null, text: "", fila: Promise.resolve() }; });
+  }
+
   async function delRec(r: OSRecord) {
     const { error } = await sb.from("service_order_records").delete().eq("id", r.id);
     if (error) return toast(errMsg(error), { err: true });
@@ -211,6 +238,16 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
   const fotoUrl = (k: string) => photos.find(p => p.position === k)?.url ?? null;
   const conferidos = ITENS_CK.filter(([k]) => os.checklist?.[k]).map(([, l]) => l).join(", ");
   const respOpts = techs;
+  const passo = nextStep(os.status, quote ? { status: quote.status as QuoteStatus } : null);
+  const stIdx = STATUSES.findIndex(s => s.id === os.status);
+  function fazerPasso() {
+    const a = passo.action;
+    if (a.kind === "quote-new") router.push(`/orcamentos/novo?os=${os.id}`);
+    else if (a.kind === "quote-open" && quote) router.push(`/orcamentos/${quote.id}`);
+    else if (a.kind === "status") void setStatus(a.to);
+    else if (a.kind === "pay") void setStatus("finalizado");
+    else if (a.kind === "pasta") router.push(`/os/${os.id}/pasta`);
+  }
 
   return (
     <div className="stack">
@@ -226,11 +263,15 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
               <span className="chip">Entrada {dt(os.entered_at)}</span>
             </div>
           </div>
-          <div style={{ marginLeft: "auto" }} className="row">
+          <div style={{ marginLeft: "auto" }} className="row acts">
             <Link className="key" href="/quadro">‹ Quadro</Link>
-            <Link className="key accent" href={`/os/${os.id}/pasta`}>Imprimir pasta do cliente</Link>
+            <Link className="key" href={`/os/${os.id}/pasta`}>Imprimir pasta do cliente</Link>
           </div>
         </div>
+        {/* no celular, datas, responsável e etapas ficam recolhidos para a câmera aparecer logo */}
+        <button type="button" className="key sm os-dados-tg" aria-expanded={dadosAberto} onClick={() => setDadosAberto(v => !v)}>
+          <span>Dados da O.S. · {ST_LABEL[os.status]}</span><span aria-hidden="true">{dadosAberto ? "▲" : "▼"}</span></button>
+        <div className={`os-dados ${dadosAberto ? "open" : ""}`}>
         <div className="grid3" style={{ marginTop: 16 }}>
           <label className="field"><span className="label">Data de entrada</span>
             <input className="input mono" id="os-ent" type="datetime-local" value={ent} onChange={e => setEnt(e.target.value)} onBlur={() => void salvarEntrada()} /></label>
@@ -245,11 +286,17 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
             <span className="hint">Preenchida sozinha ao marcar Finalizado</span></label>
         </div>
         <div style={{ marginTop: 14 }} className="stbar">
-          {STATUSES.map(s => (
-            <button type="button" key={s.id} className={`key ${os.status === s.id ? "on" : ""} ${s.id === "finalizado" ? "fin" : ""}`}
-              aria-pressed={os.status === s.id} onClick={() => void setStatus(s.id)}>{s.label}</button>
+          {STATUSES.map((s, si) => (
+            <button type="button" key={s.id} className={`key ${os.status === s.id ? "on" : si < stIdx ? "past" : ""} ${s.id === "finalizado" ? "fin" : ""}`}
+              aria-pressed={os.status === s.id} aria-current={os.status === s.id ? "step" : undefined} onClick={() => void setStatus(s.id)}>{s.label}</button>
           ))}
         </div>
+        </div>
+      </section>
+
+      <section className={`panel next ${os.status === "finalizado" ? "done" : ""}`} aria-label="Próximo passo">
+        <div className="nx-t"><small>Próximo passo</small><b>{passo.title}</b><span>{passo.hint}</span></div>
+        <button type="button" className="key accent" onClick={fazerPasso}>{passo.button}</button>
       </section>
 
       <div className="split">
@@ -266,7 +313,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
           <section className="panel">
             <div className="tabs" role="tablist">
               {ABAS.map(([a, l]) => (
-                <button type="button" role="tab" aria-selected={aba === a} key={a} className={`key ${aba === a ? "accent" : ""}`}
+                <button type="button" role="tab" aria-selected={aba === a} key={a} className={`key ${aba === a ? "on" : ""}`}
                   onClick={() => { setAba(a); setPend(null); }}>{l} <span className="count">{cont(a)}</span></button>
               ))}
             </div>
@@ -279,7 +326,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
               <input type="file" multiple accept="image/*,video/*" aria-label="Enviar mídias" onChange={e => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void enviar(f); }} />
             </label>
             <div className="row" style={{ margin: "10px 0 14px" }}>
-              <label className="key accent quick">{ICAMI}Foto rápida
+              <label className="key quick">{ICAMI}Foto rápida
                 <input type="file" accept="image/*" capture="environment" aria-label="Tirar foto" onChange={e => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void enviar(f, true); }} /></label>
               <label className="key quick">{IVIDEO}Vídeo rápido
                 <input type="file" accept="video/*" capture="environment" aria-label="Gravar vídeo" onChange={e => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void enviar(f, true); }} /></label>
@@ -303,8 +350,8 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
               <div className="hint">Senha: celular do cliente com DDD, só números{os.customer_phone ? ` (${digits(os.customer_phone)})` : ""}.</div>
               <div className="row">
                 {wa
-                  ? <a className="key wa" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => { void hist("Link de acompanhamento enviado pelo WhatsApp").then(() => router.refresh()); }}>Enviar no WhatsApp</a>
-                  : <span className="key wa" aria-disabled="true">Enviar no WhatsApp</span>}
+                  ? <a className="key" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => { void hist("Link de acompanhamento enviado pelo WhatsApp").then(() => router.refresh()); }}>Enviar no WhatsApp</a>
+                  : <span className="key" aria-disabled="true">Enviar no WhatsApp</span>}
                 <button type="button" className="key" onClick={() => void copyText(msg)}>Copiar mensagem</button>
               </div>
               <a className="key" href={`/c/${os.portal_token}`} target="_blank" rel="noopener noreferrer">Ver como o cliente vê</a>
@@ -319,7 +366,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
                 <div className="lcd total-lcd"><span className="lcd-msg">Orçamento nº {quote.number}</span><strong>{brl(quote.total)}</strong></div>
                 <Link className="key" style={{ marginTop: 10, width: "100%" }} href={`/orcamentos/${quote.id}`}>Abrir orçamento</Link>
               </>
-            ) : <a className="key accent" style={{ width: "100%" }} href={`/orcamentos/novo?os=${os.id}`}>Criar orçamento</a>}
+            ) : <a className="key" style={{ width: "100%" }} href={`/orcamentos/novo?os=${os.id}`}>Criar orçamento</a>}
           </section>
 
           <section className="panel">
@@ -358,6 +405,23 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
           </section>
         </aside>
       </div>
+
+      {/* celular: Foto · Vídeo · Ditar · próxima etapa, sempre à mão (a aba escolhida decide onde entra) */}
+      <nav className="os-bar" aria-label="Registrar na O.S.">
+        <div className="ob-tabs" role="tablist" aria-label="Salvar em">
+          {ABAS.map(([a, , n]) => (
+            <button type="button" role="tab" key={a} aria-selected={aba === a} className={aba === a ? "on" : ""} onClick={() => { setAba(a); setPend(null); }}>{n} {cont(a) ? `· ${cont(a)}` : ""}</button>
+          ))}
+        </div>
+        <div className="ob-acts">
+          <label className="key quick">{ICAMI}Foto
+            <input type="file" accept="image/*" capture="environment" aria-label={`Tirar foto em ${ABA_NOME[aba]}`} onChange={e => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void enviar(f, true); }} /></label>
+          <label className="key quick">{IVIDEO}Vídeo
+            <input type="file" accept="video/*" capture="environment" aria-label={`Gravar vídeo em ${ABA_NOME[aba]}`} onChange={e => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void enviar(f, true); }} /></label>
+          <MicButton className="ob-mic" label="Ditar" icon={IMIC} onText={ditarNota} onEnd={fimDitado} />
+          <button type="button" className="key accent" onClick={fazerPasso}>{passo.short}</button>
+        </div>
+      </nav>
 
       {paying && (
         <PaymentModal os={{ id: os.id, number: os.number, plate: os.plate, make: os.make, model: os.model, customer_name: os.customer_name, total, status: os.status }}

@@ -3,7 +3,8 @@ import { Clientes, type CliRow } from "./Clientes.tsx";
 
 export const dynamic = "force-dynamic";
 
-export default async function ClientesPage() {
+export default async function ClientesPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q } = await searchParams;
   const sb = await createClient();
   const [{ data: clientes, error }, { data: veics }, { data: oss }] = await Promise.all([
     sb.from("customers").select("id, name, phone, document, zip_code").order("name"),
@@ -25,7 +26,7 @@ export default async function ClientesPage() {
   return (
     <>
       {error && <div className="banner"><span>Erro ao carregar os clientes: {error.message}</span></div>}
-      <Clientes rows={rows} />
+      <Clientes rows={rows} buscaInicial={q ?? ""} />
     </>
   );
 }

@@ -3,7 +3,7 @@ import { NovaOS, type NovaCliente, type NovaAgenda, type NovaVeiculo } from "./N
 
 export const dynamic = "force-dynamic";
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ cliente?: string; ag?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ cliente?: string; ag?: string; placa?: string }> }) {
   const sp = await searchParams;
   const sb = await createClient();
   const me = await getMe();
@@ -23,7 +23,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
   return (
     <main id="view">
       <NovaOS shopId={me!.shop_id} clientes={(clientes ?? []) as NovaCliente[]} agenda={agenda} veiculo={veiculo}
-        clienteInicial={agenda?.customer_id ?? sp.cliente ?? ""} />
+        clienteInicial={agenda?.customer_id ?? sp.cliente ?? ""} placaInicial={sp.placa ?? ""} />
     </main>
   );
 }

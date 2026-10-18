@@ -2,6 +2,7 @@ import { createClient, getMe } from "@/lib/supabase/server.ts";
 import { ymd } from "@/lib/labels.ts";
 import { Board, type BoardCard } from "./Board.tsx";
 import type { ShopFees } from "@/lib/rules.ts";
+import { activeQuote, type QuoteLite } from "@/lib/proximo.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,14 @@ export default async function QuadroPage() {
   ]);
   const nRec: Record<string, number> = {};
   for (const r of (recs ?? []) as { service_order_id: string }[]) nRec[r.service_order_id] = (nRec[r.service_order_id] ?? 0) + 1;
-  const list = ((cards ?? []) as BoardCard[]).map(c => ({ ...c, n_records: nRec[c.id] ?? 0 }));
+  // situação do orçamento que vale para cada O.S. (selo do card)
+  const ids = ((cards ?? []) as { id: string }[]).map(c => c.id);
+  const { data: qs } = ids.length
+    ? await sb.from("quotes").select("id, status, created_at, service_order_id").in("service_order_id", ids)
+    : { data: [] };
+  const porOS: Record<string, QuoteLite[]> = {};
+  for (const q of (qs ?? []) as (QuoteLite & { service_order_id: string })[]) (porOS[q.service_order_id] ??= []).push(q);
+  const list = ((cards ?? []) as BoardCard[]).map(c => ({ ...c, n_records: nRec[c.id] ?? 0, quote_status: activeQuote(porOS[c.id] ?? [])?.status ?? null }));
   const f = shop as ShopFees;
   return (
     <>

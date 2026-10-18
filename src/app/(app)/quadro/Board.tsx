@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client.ts";
-import { STATUSES, type Status, type ShopFees } from "@/lib/rules.ts";
+import { STATUSES, brl, type Status, type ShopFees } from "@/lib/rules.ts";
+import { quoteBadge, type QuoteStatus } from "@/lib/proximo.ts";
 import { STATUS_IDX, TIPOS, normPlaca } from "@/lib/labels.ts";
 import { addMediaRecord } from "@/lib/media.ts";
 import { errMsg, sfx, toast } from "@/lib/ui.ts";
@@ -15,6 +16,7 @@ import { ICAM } from "@/components/icons.tsx";
 export interface BoardCard {
   id: string; number: number; plate: string; make: string | null; model: string | null; status: Status; entry_type: string;
   customer_name: string; technician_name: string | null; total: number; status_since: string; entered_at: string; exited_at: string | null; n_records: number;
+  quote_status: QuoteStatus | null;
 }
 /** posição horizontal de uma coluna dentro da área que rola */
 const colX = (box: HTMLElement, col: HTMLElement) => col.getBoundingClientRect().left - box.getBoundingClientRect().left + box.scrollLeft;
@@ -29,6 +31,7 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
   const [paying, setPaying] = useState<BoardCard | null>(null);
   const [busca, setBusca] = useState("");
   const [over, setOver] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const buscaRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [colAtiva, setColAtiva] = useState<Status>("orcamento");
@@ -125,16 +128,19 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
                 onClick={() => irColuna(s.id)}><i>{pad(si + 1)}</i>{s.label}<b>{porColuna[si].length}</b></button>
             ))}
           </div>
-          <div className="board-scroll" ref={scrollRef}><div className="board">
+          {/* no computador, coluna vazia vira uma faixa estreita (abre ao arrastar um card) para as 6 etapas caberem na tela */}
+          <div className="board-scroll" ref={scrollRef}><div className="board"
+            style={{ "--cols": porColuna.map(cs => (cs.length || dragging ? "minmax(150px,1fr)" : "52px")).join(" ") } as React.CSSProperties}>
             {STATUSES.map((s, si) => {
               const cs = porColuna[si];
+              const min = !cs.length && !dragging;
               return (
-                <div key={s.id} className={`col ${over === s.id ? "over" : ""}`} data-col={s.id}
+                <div key={s.id} className={`col ${over === s.id ? "over" : ""} ${min ? "col-min" : ""}`} data-col={s.id}
                   onDragOver={e => { e.preventDefault(); setOver(s.id); }} onDragLeave={() => setOver(o => (o === s.id ? null : o))}
-                  onDrop={e => { e.preventDefault(); setOver(null); void move(e.dataTransfer.getData("text/plain"), s.id); }}>
-                  <div className="col-h"><span className="t"><i>{pad(si + 1)}</i>{s.label}</span><span className="count">{cs.length}</span></div>
+                  onDrop={e => { e.preventDefault(); setOver(null); setDragging(false); void move(e.dataTransfer.getData("text/plain"), s.id); }}>
+                  <div className="col-h" title={min ? `${s.label}: nenhum veículo` : undefined}><span className="t"><i>{pad(si + 1)}</i><span className="col-n">{s.label}</span></span><span className="count">{cs.length}</span></div>
                   {s.id === "finalizado" && <div className="hint" style={{ padding: "0 4px" }}>Últimos 3 dias · os anteriores ficam no <Link className="lnk" href="/historico">Histórico</Link></div>}
-                  {cs.length ? cs.map(o => <Card key={o.id} o={o} onMove={move} onPhoto={quickPhoto} onOpen={() => router.push(`/os/${o.id}`)} />) : <div className="empty">Nenhum veículo</div>}
+                  {cs.length ? cs.map(o => <Card key={o.id} o={o} onMove={move} onPhoto={quickPhoto} onOpen={() => router.push(`/os/${o.id}`)} onDrag={setDragging} />) : <div className="empty">Nenhum veículo</div>}
                 </div>
               );
             })}
@@ -159,7 +165,9 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
   );
 }
 
-function Card({ o, onMove, onPhoto, onOpen }: { o: BoardCard; onMove: (id: string, to: Status) => void; onPhoto: (o: BoardCard, f: FileList | null) => void; onOpen: () => void }) {
+function Card({ o, onMove, onPhoto, onOpen, onDrag }: {
+  o: BoardCard; onMove: (id: string, to: Status) => void; onPhoto: (o: BoardCard, f: FileList | null) => void; onOpen: () => void; onDrag: (v: boolean) => void;
+}) {
   const fim = o.status === "finalizado" && o.exited_at ? new Date(o.exited_at).getTime() : Date.now();
   const h = Math.max(0, (fim - new Date(o.entered_at).getTime()) / 36e5);
   const tempo = h < 24 ? `${Math.floor(h)} h` : `${Math.floor(h / 24)} d`;
@@ -167,12 +175,14 @@ function Card({ o, onMove, onPhoto, onOpen }: { o: BoardCard; onMove: (id: strin
   const parado = o.status !== "finalizado" ? Math.floor((Date.now() - new Date(o.status_since).getTime()) / 864e5) : 0;
   const nm = o.n_records;
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  const selo = quoteBadge(o.status, o.quote_status ? { status: o.quote_status } : null);
   return (
-    <article className={`card ${parado >= 3 ? "is-stale" : ""}`} draggable onDragStart={e => { e.dataTransfer.setData("text/plain", o.id); e.dataTransfer.effectAllowed = "move"; }}
+    <article className={`card ${parado >= 3 ? "is-stale" : ""}`} draggable onDragStart={e => { e.dataTransfer.setData("text/plain", o.id); e.dataTransfer.effectAllowed = "move"; onDrag(true); }} onDragEnd={() => onDrag(false)}
       onClick={onOpen} role="link" tabIndex={0} onKeyDown={e => { if (e.key === "Enter") onOpen(); }}>
       {parado >= 3 && <div className="stale" title={`Sem mudar de etapa há ${parado} dias`}>Parado há {parado} dias nesta etapa</div>}
       <div className="card-top"><Plate p={o.plate} /><span className={`chip t-${o.entry_type}`}><span className="dot" style={{ background: "currentColor" }} />{TIPOS[o.entry_type]}</span></div>
       <div><div className="veh">{o.make} {o.model}</div><div className="meta">{o.customer_name || "Sem cliente"} · OS {o.number}{o.technician_name && <><br />Resp.: {o.technician_name}</>}</div></div>
+      {selo && <div className={`qb ${selo.tone}`}>{selo.text}{selo.tone === "ok" && o.total > 0 ? ` · ${brl(o.total)}` : ""}</div>}
       <div className="card-foot"><span className="meta">{tempo} {o.status === "finalizado" ? "de pátio" : "no pátio"}{nm ? ` · ${nm} registro${nm > 1 ? "s" : ""}` : ""}</span>
         <span className="mv" onClick={stop}>
           <label className="key sm quick" title="Foto rápida em Serviço">{ICAM}<input type="file" accept="image/*" capture="environment" aria-label={`Foto rápida em Serviço de ${o.plate}`} onChange={e => { onPhoto(o, e.target.files); e.target.value = ""; }} /></label>
