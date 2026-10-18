@@ -1,6 +1,7 @@
 "use client";
 // Moldura do app igual ao protótipo: menu lateral fixo, barra do topo (Nova O.S., LCD, mascote, sino, som,
 // engrenagem, tema, relógio), painel de lembretes, rodapé e toast.
+import { Busca, ILUPA } from "./Busca.tsx";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -76,7 +77,7 @@ function tickMsgs(d: ShellData) {
     if (d.contas.length) m.push(`${d.contas.length} conta${d.contas.length > 1 ? "s" : ""} a pagar vencendo · total ${brl(d.contas.reduce((a, c) => a + c.amount, 0))}`);
     m.push(`Faturamento do mês: ${brl(d.fatMes)} · ticket médio ${brl(d.ticketMes)}`);
   }
-  const dicas = ["Dica: aperte N para abrir uma nova O.S.", "Dica: aperte / para buscar uma placa no quadro", "Dica: arraste o card entre as colunas do quadro", "Dica: use a foto rápida do card para registrar o serviço", "Dica: toque em Ditar e fale a descrição do serviço", "Dica: envie o link de acompanhamento pelo WhatsApp", "Dica: gere a guia de serviço direto do orçamento", "Dica: + Peça cadastrada puxa o preço do catálogo", "Dica: Esc fecha janelas e volta para o quadro"];
+  const dicas = ["Dica: aperte N para abrir uma nova O.S.", "Dica: aperte Ctrl+K para buscar placa, cliente ou O.S. de qualquer tela", "Dica: arraste o card entre as colunas do quadro", "Dica: use a foto rápida do card para registrar o serviço", "Dica: toque em Ditar e fale a descrição do serviço", "Dica: envie o link de acompanhamento pelo WhatsApp", "Dica: gere a guia de serviço direto do orçamento", "Dica: + Peça cadastrada puxa o preço do catálogo", "Dica: Esc fecha janelas e volta para o quadro"];
   if (fin) dicas.push("Dica: cadastre a chave pix do fornecedor para pagar mais rápido", "Dica: despesas fixas podem repetir todo mês");
   for (let k = 0; k < 3; k++) m.push(dicas[Math.floor(Math.random() * dicas.length)]);
   return [...new Set(m)].map(x => x.toUpperCase());
@@ -234,7 +235,8 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
   const [som, setSomS] = useState(true);
   const [tema, setTema] = useState<"light" | "dark">("light");
   const [lemb, setLemb] = useState(false);
-  const [menu, setMenu] = useState(false);   // menu retrátil do celular (≤ 980px)
+  const [menu, setMenu] = useState(false);
+  const [busca, setBusca] = useState(false);   // busca única (Ctrl+K ou /)   // menu retrátil do celular (≤ 980px)
   useTabelasCartao();
   const U = data.me; const fin = U.role !== "atendente"; const master = U.role === "master";
   useEffect(() => { setSomS(somOn()); setTema(getTheme()); }, []);
@@ -257,7 +259,10 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
         if (!typing && /^\/os\//.test(path)) router.push("/quadro");
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); setBusca(true); return; }
       if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+      // no Quadro o "/" continua indo para o filtro do próprio quadro
+      if (e.key === "/" && path !== "/quadro") { e.preventDefault(); setBusca(true); return; }
       if (e.key === "n" || e.key === "N") { e.preventDefault(); sfx("tap"); router.push("/os/nova"); }
     };
     window.addEventListener("keydown", on);
@@ -288,6 +293,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
             <Link className={`key accent nova ${path === "/os/nova" ? "on-n" : ""}`} title="Nova O.S. (atalho: N)" href="/os/nova" onClick={() => sfx("tap")}>
               <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Nova O.S.
             </Link>
+            <button className="gear bs-btn" aria-label="Buscar placa, cliente ou O.S. (Ctrl+K)" title="Buscar (Ctrl+K ou /)" onClick={() => { setBusca(true); sfx("tap"); }}>{ILUPA}</button>
             <Lcd data={data} />
             <MascotButton pose={pose} />
             <button className={`bell ${nBell ? "hot" : ""} ${lemb ? "on" : ""}`} title="Lembretes"
@@ -307,6 +313,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
           </div>
         </header>
 
+        {busca && <Busca onClose={() => setBusca(false)} />}
         <div className="shell">
           {menu && <div className="side-bg" aria-hidden="true" onClick={() => setMenu(false)} />}
           <aside className={`side ${menu ? "open" : ""}`} id="menu-principal" aria-label="Menu">

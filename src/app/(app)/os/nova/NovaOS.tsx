@@ -20,20 +20,20 @@ interface Draft {
 }
 const VCAMPOS: [keyof Draft, string][] = [["marca", "Marca"], ["modelo", "Modelo"], ["ano", "Ano fab./mod."], ["cor", "Cor"], ["combustivel", "Combustível"], ["km", "Quilometragem"]];
 
-function novoDraft(clienteId = "", ag?: NovaAgenda | null, v?: NovaVeiculo | null): Draft {
+function novoDraft(clienteId = "", ag?: NovaAgenda | null, v?: NovaVeiculo | null, placa = ""): Draft {
   return {
-    placa: normPlaca(ag?.plate || ""), marca: v?.make || "", modelo: v?.model || "", ano: v?.year || "", cor: v?.color || "", combustivel: v?.fuel || "",
+    placa: normPlaca(ag?.plate || placa), marca: v?.make || "", modelo: v?.model || "", ano: v?.year || "", cor: v?.color || "", combustivel: v?.fuel || "",
     km: "", nivel: "1/2", clienteId, novoNome: "", novoTel: "", tipo: "servico",
     checklist: Object.fromEntries(ITENS_CK.map(([k]) => [k, false])), obs: ag?.reason || "",
   };
 }
 
-export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
-  shopId: string; clientes: NovaCliente[]; agenda: NovaAgenda | null; veiculo: NovaVeiculo | null; clienteInicial: string;
+export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial, placaInicial = "" }: {
+  shopId: string; clientes: NovaCliente[]; agenda: NovaAgenda | null; veiculo: NovaVeiculo | null; clienteInicial: string; placaInicial?: string;
 }) {
   const sb = useMemo(() => createClient(), []);
   const router = useRouter();
-  const [d, setD] = useState<Draft>(() => novoDraft(clienteInicial, agenda, veiculo));
+  const [d, setD] = useState<Draft>(() => novoDraft(clienteInicial, agenda, veiculo, placaInicial));
   const [lk, setLk] = useState<Lk>(veiculo?.model ? "ok" : "idle");
   const [lkMsg, setLkMsg] = useState(veiculo?.model ? `VEÍCULO JÁ CADASTRADO: ${veiculo.make || ""} ${veiculo.model}`.toUpperCase() : "");
   const [fotos, setFotos] = useState<Record<string, { file: File; url: string }>>({});
@@ -103,6 +103,32 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
   function limpar() {
     Object.values(fotos).forEach(f => URL.revokeObjectURL(f.url));
     setFotos({}); setD(novoDraft()); setAgOn(false); setLk("idle"); setLkMsg(""); checado.current = "";
+  }
+
+  // o que falta para abrir (faixa de progresso): obrigatórios bloqueiam; fotos só pedem confirmação
+  const telNovo = (() => { let t = digits(d.novoTel); if (t.length > 11 && t.startsWith("55")) t = t.slice(2); return t; })();
+  const nFotos = Object.keys(fotos).length;
+  const prog = [
+    { k: "placa", l: "Placa", ok: placaOk(normPlaca(d.placa)), alvo: "placa", msg: "Informe uma placa válida" },
+    { k: "modelo", l: "Modelo", ok: !!d.modelo.trim(), alvo: "d-modelo", msg: "Preencha o modelo do veículo" },
+    { k: "fotos", l: `Fotos ${nFotos}/${FOTOS.length}`, ok: nFotos === FOTOS.length, alvo: "nv-fotos", msg: "", opcional: true },
+    { k: "cliente", l: "Cliente", alvo: d.clienteId === "__novo" ? (d.novoNome.trim() ? "dn-tel" : "dn-nome") : "d-cli",
+      ok: d.clienteId === "__novo" ? !!d.novoNome.trim() && telNovo.length >= 10 && telNovo.length <= 11 : !!d.clienteId,
+      msg: d.clienteId === "__novo" ? "Informe nome e celular com DDD do cliente" : "Selecione o cliente" },
+  ];
+  const faltam = prog.filter(p => !p.ok && !p.opcional);
+  const [confFotos, setConfFotos] = useState(false);
+  useEffect(() => { if (nFotos === FOTOS.length) setConfFotos(false); }, [nFotos]);
+  function irPara(id: string) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) (el as HTMLInputElement).focus({ preventScroll: true });
+  }
+  function tentarAbrir() {
+    if (faltam.length) { toast(faltam[0].msg, { err: true }); irPara(faltam[0].alvo); return; }
+    if (nFotos < FOTOS.length && !confFotos) { setConfFotos(true); sfx("err"); return; }
+    void abrir();
   }
 
   async function abrir() {
@@ -199,7 +225,7 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
             </div>
           </section>
 
-          <section className="panel">
+          <section className="panel" id="nv-fotos">
             <div className="ph"><h2>Fotos de entrada</h2><span className="hint">Toque em cada quadro para fotografar ou escolher a imagem</span></div>
             <div className="slots">
               {FOTOS.map(([k, l]) => <PhotoSlot key={k} label={l} url={fotos[k]?.url} onFile={f => setFoto(k, f)} onRemove={() => setFoto(k, null)} />)}
@@ -247,11 +273,26 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
               </div>
             )}
           </section>
-          <section className="panel"><div className="stack">
-            <button type="button" className="key accent" style={{ padding: 14 }} onClick={() => void abrir()} disabled={busy}>{busy ? "Abrindo…" : "Abrir checklist"}</button>
-            <button type="button" className="key" onClick={limpar} disabled={busy}>Limpar formulário</button>
-            <p className="hint" style={{ margin: 0 }}>Ao abrir, o carro entra no quadro na coluna <b>Orçamento</b> e você já pode registrar avarias e serviços com fotos e vídeos.</p>
-          </div></section>
+          {/* progresso: no computador fica na lateral; no celular vira uma faixa fixa embaixo */}
+          <section className="panel nv-prog" aria-label="O que falta para abrir">
+            <ul className="nv-list">
+              {prog.map(p => (
+                <li key={p.k}><button type="button" className={`nv-it ${p.ok ? "ok" : p.opcional ? "warn" : "bad"}`} onClick={() => irPara(p.alvo)}>
+                  <span className="nv-ic" aria-hidden="true">{p.ok ? "✓" : p.opcional ? "!" : "✗"}</span>{p.l}
+                  <span className="sr-only">{p.ok ? " ok" : " falta"}</span></button></li>
+              ))}
+            </ul>
+            {confFotos && nFotos < FOTOS.length
+              ? <div className="nv-conf"><span>Faltam {FOTOS.length - nFotos} foto{FOTOS.length - nFotos > 1 ? "s" : ""} de entrada. Abrir mesmo assim?</span>
+                  <div className="row"><button type="button" className="key" onClick={() => { setConfFotos(false); irPara("nv-fotos"); }}>Tirar fotos</button>
+                    <button type="button" className="key accent" onClick={() => void abrir()} disabled={busy}>{busy ? "Abrindo…" : "Abrir assim"}</button></div></div>
+              : <button type="button" className={`key ${faltam.length ? "" : "accent"} nv-go`} onClick={tentarAbrir} disabled={busy}>
+                  {busy ? "Abrindo…" : faltam.length ? `Falta: ${faltam.map(p => p.l.toLowerCase()).join(", ")}` : "Abrir checklist"}</button>}
+            <div className="nv-extra">
+              <button type="button" className="key" onClick={limpar} disabled={busy}>Limpar formulário</button>
+              <p className="hint" style={{ margin: 0 }}>Ao abrir, o carro entra no quadro na coluna <b>Orçamento</b> e você já pode registrar avarias e serviços com fotos e vídeos.</p>
+            </div>
+          </section>
         </aside>
       </div>
     </>

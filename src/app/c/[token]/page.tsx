@@ -29,6 +29,8 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
   const [data, setData] = useState<PortalData | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [zoom, setZoom] = useState<ZoomState | null>(null);
+  const [recusando, setRecusando] = useState(false);
   const senha = useRef("");
   const ultima = useRef({ sig: "", at: 0 });
 
@@ -94,6 +96,7 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
   const i = Math.max(0, STATUSES.findIndex(s => s.id === data.status));
   const fin = data.status === "finalizado";
   const r = data.quote;
+  const pendente = !!r && (r.status === "rascunho" || r.status === "enviado") && !fin;
   const fotos = FOTOS.map(([k, l]) => ({ l, url: data.photos.find(p => p.position === k)?.url })).filter(f => f.url);
   return (
     <div className="wrap"><div className="portal">
@@ -115,10 +118,12 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
           ))}
         </div>
         {data.last_update && <p className="hint" style={{ margin: "10px 0 0" }}>Última atualização: {dt(data.last_update.at)} — {data.last_update.text}</p>}
+        <Linha d={data} />
       </section>
 
-      {r && (
-        <section className="panel">
+      {(() => {
+        const orc = r && (
+        <section className="panel" key="orc">
           <div className="ph"><h2>Orçamento nº {r.number}</h2>
             <span className={`chip ${r.status === "aprovado" ? "ok" : r.status === "recusado" ? "bad" : ""}`}>{ORC_ST[r.status]}</span></div>
           <div className="tbl-wrap"><table><tbody>
@@ -131,25 +136,39 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
             {Number(r.discount) > 0 && <tr><td>Desconto</td><td className="num">−{brl(Number(r.discount))}</td></tr>}
           </tbody></table></div>
           <div className="lcd total-lcd" style={{ marginTop: 10 }}><span className="lcd-msg">TOTAL</span><strong>{brl(Number(r.total))}</strong></div>
-          {(r.status === "rascunho" || r.status === "enviado") && (
-            <div className="grid2" style={{ marginTop: 12 }}>
-              <button className="key accent" style={{ padding: 14 }} disabled={busy} onClick={() => void decidir("aprovado")}>Aprovar orçamento</button>
-              <button className="key" style={{ padding: 14 }} disabled={busy} onClick={() => void decidir("recusado")}>Recusar</button>
-            </div>
-          )}
+          {pendente && <p className="hint" style={{ margin: "10px 0 0" }}>Aprove ou recuse pelos botões no fim da tela. Se preferir, fale com a oficina pelo WhatsApp.</p>}
         </section>
-      )}
-
-      <Gal recs={data.records} titulo="Serviço" k="servicos" vazio="A equipe ainda não registrou serviços." />
-      <Gal recs={data.records} titulo="Peças" k="pecas" vazio="Nenhuma peça registrada." />
-      <Gal recs={data.records} titulo="Avarias registradas" k="avarias" vazio="Nenhuma avaria registrada." />
+        );
+        const gals = [
+          <Gal key="servicos" recs={data.records} titulo="Serviço executado" k="servicos" onOpen={setZoom} />,
+          <Gal key="pecas" recs={data.records} titulo="Peças" k="pecas" onOpen={setZoom} />,
+          <Gal key="avarias" recs={data.records} titulo="Avarias registradas" k="avarias" onOpen={setZoom} />,
+        ];
+        const vazio = !data.records.length && (
+          <p key="vazio" className="hint" style={{ margin: 0, textAlign: "center" }}>Assim que a equipe registrar avarias e o serviço, as fotos aparecem aqui.</p>);
+        // esperando aprovação: orçamento e avarias primeiro; depois de aprovado, o serviço vem antes
+        return pendente ? [orc, gals[2], gals[1], gals[0], vazio] : [gals[0], gals[1], gals[2], orc, vazio];
+      })()}
       {fotos.length > 0 && (
         <section className="panel"><div className="ph"><h2>Fotos da entrada</h2></div>
           <div className="photos-mini">{fotos.map(f => (
-            <span className="slot has" key={f.l}><img src={f.url!} alt={f.l} /><span className="cap">{f.l}</span></span>
+            <button type="button" className="slot has" key={f.l} onClick={() => setZoom({ list: fotos.map(x => ({ url: x.url!, mime: "image/jpeg", text: x.l })), i: fotos.indexOf(f) })}
+              aria-label={`Ampliar foto ${f.l}`}><img src={f.url!} alt={f.l} /><span className="cap">{f.l}</span></button>
           ))}</div>
         </section>
       )}
+      {pendente && r && (
+        <div className="pt-bar" role="region" aria-label="Decisão do orçamento">
+          {recusando
+            ? <><span className="pt-q">Recusar o orçamento nº {r.number}?</span>
+                <button className="key" disabled={busy} onClick={() => setRecusando(false)}>Voltar</button>
+                <button className="key danger" disabled={busy} onClick={() => { setRecusando(false); void decidir("recusado"); }}>Sim, recusar</button></>
+            : <><span className="pt-t"><span className="label">Orçamento nº {r.number}</span><strong className="mono">{brl(Number(r.total))}</strong></span>
+                <button className="key" disabled={busy} onClick={() => setRecusando(true)}>Recusar</button>
+                <button className="key accent" disabled={busy} onClick={() => void decidir("aprovado")}>Aprovar</button></>}
+        </div>
+      )}
+      {zoom && <Zoom z={zoom} onClose={() => setZoom(null)} onGo={i => setZoom({ ...zoom, i })} />}
       <div className="row" style={{ justifyContent: "center" }}><button className="key sm" onClick={sair}>Sair</button></div>
       {FOOT}
     </div><ToastHost /></div>
@@ -161,22 +180,78 @@ function assinatura(d: PortalData) {
     d.photos.map(p => p.position), d.records.map(r => [r.tab, r.at, r.description, !!r.url])]);
 }
 
-function Fig({ m }: { m: PRec }) {
+type ZoomItem = { url: string; mime: string | null; text: string };
+type ZoomState = { list: ZoomItem[]; i: number };
+
+function Fig({ m, onOpen }: { m: PRec; onOpen: () => void }) {
+  const vid = (m.mime ?? "").startsWith("video");
   return (
     <figure>
-      {m.url && <div className="pv">{(m.mime ?? "").startsWith("video")
+      {m.url && <div className="pv">{vid
         ? <video src={m.url} controls playsInline preload="metadata" />
-        : <img src={m.url} alt={m.description || ""} />}</div>}
-      <figcaption><span className="label">{dt(m.at)}</span><br />{m.description || "Sem descrição"}</figcaption>
+        : <button type="button" className="pv-btn" onClick={onOpen} aria-label="Ampliar foto"><img src={m.url} alt={m.description || ""} /></button>}</div>}
+      <figcaption><span className="label">{dt(m.at)}</span>{m.description && <><br />{m.description}</>}</figcaption>
     </figure>
   );
 }
 
-function Gal({ recs, titulo, k, vazio }: { recs: PRec[]; titulo: string; k: string; vazio: string }) {
+/** galeria de uma aba; aba sem registro não aparece */
+function Gal({ recs, titulo, k, onOpen }: { recs: PRec[]; titulo: string; k: string; onOpen: (z: ZoomState) => void }) {
   const l = recs.filter(x => x.tab === k);
+  if (!l.length) return null;
+  const fotos = l.filter(m => m.url && !(m.mime ?? "").startsWith("video"));
   return (
     <section className="panel"><div className="ph"><h2>{titulo}</h2><span className="count">{l.length}</span></div>
-      {l.length ? <div className="gal">{l.map(m => <Fig key={`${m.at}-${m.url ?? ""}`} m={m} />)}</div> : <div className="empty">{vazio}</div>}
+      <div className="gal">{l.map(m => <Fig key={`${m.at}-${m.url ?? ""}`} m={m}
+        onOpen={() => onOpen({ list: fotos.map(f => ({ url: f.url!, mime: f.mime, text: f.description || dt(f.at) })), i: fotos.indexOf(m) })} />)}</div>
     </section>
+  );
+}
+
+/** foto em tela cheia: ‹ › ou deslizar para passar, Esc ou toque fora para fechar */
+function Zoom({ z, onClose, onGo }: { z: ZoomState; onClose: () => void; onGo: (i: number) => void }) {
+  const n = z.list.length, it = z.list[z.i];
+  const x0 = useRef<number | null>(null);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight" && z.i < n - 1) onGo(z.i + 1);
+      if (e.key === "ArrowLeft" && z.i > 0) onGo(z.i - 1);
+    };
+    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
+  }, [z.i, n, onClose, onGo]);
+  if (!it) return null;
+  return (
+    <div className="zoom" role="dialog" aria-modal="true" aria-label="Foto ampliada" onClick={onClose}
+      onTouchStart={e => { x0.current = e.touches[0].clientX; }}
+      onTouchEnd={e => { const d = x0.current === null ? 0 : e.changedTouches[0].clientX - x0.current; x0.current = null;
+        if (d < -50 && z.i < n - 1) onGo(z.i + 1); else if (d > 50 && z.i > 0) onGo(z.i - 1); }}>
+      <img src={it.url} alt={it.text} onClick={e => e.stopPropagation()} />
+      <div className="zoom-bar" onClick={e => e.stopPropagation()}>
+        <button type="button" className="key" aria-label="Foto anterior" aria-disabled={z.i === 0} onClick={() => onGo(z.i - 1)}>‹</button>
+        <span>{it.text}<small className="mono"> · {z.i + 1}/{n}</small></span>
+        <button type="button" className="key" aria-label="Próxima foto" aria-disabled={z.i === n - 1} onClick={() => onGo(z.i + 1)}>›</button>
+        <button type="button" className="key" aria-label="Fechar" onClick={onClose}>×</button>
+      </div>
+    </div>
+  );
+}
+
+/** linha do tempo do carro, montada com o que o portal já recebe */
+function Linha({ d }: { d: PortalData }) {
+  const tab = (k: string) => d.records.filter(x => x.tab === k).sort((a, b) => (a.at < b.at ? -1 : 1));
+  const plural = (n: number, s: string, p: string) => `${n} ${n > 1 ? p : s}`;
+  const av = tab("avarias"), pc = tab("pecas"), sv = tab("servicos");
+  const ev: { at: string | null; t: string; on?: boolean }[] = [{ at: d.entered_at, t: "Entrada na oficina" }];
+  if (av.length) ev.push({ at: av[0].at, t: plural(av.length, "avaria registrada", "avarias registradas") });
+  if (d.quote) ev.push({ at: null, t: `Orçamento nº ${d.quote.number}: ${ORC_ST[d.quote.status] ?? d.quote.status}` });
+  if (pc.length) ev.push({ at: pc[pc.length - 1].at, t: plural(pc.length, "registro de peças", "registros de peças") });
+  if (sv.length) ev.push({ at: sv[sv.length - 1].at, t: plural(sv.length, "registro do serviço", "registros do serviço") });
+  if (d.exited_at) ev.push({ at: d.exited_at, t: "Carro entregue", on: true });
+  else ev.push({ at: d.last_update?.at ?? null, t: `Agora: ${STATUSES.find(s => s.id === d.status)?.label ?? d.status}`, on: true });
+  return (
+    <ol className="pt-line" aria-label="O que aconteceu com o seu carro">
+      {ev.map((e, j) => <li key={j} className={e.on ? "on" : ""}><span>{e.t}</span>{e.at && <time className="mono">{dt(e.at)}</time>}</li>)}
+    </ol>
   );
 }
