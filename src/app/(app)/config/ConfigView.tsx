@@ -15,11 +15,12 @@ export interface CfgShop {
 export interface CfgUser { id: string; full_name: string; username: string; role: Role; active: boolean }
 export interface CfgTech { id: string; name: string; active: boolean }
 export interface PwStatus { active: boolean; set_at: string | null; set_by: string | null }
+export interface PlateStatus { active: boolean; set_at: string | null; set_by: string | null; last4: string | null }
 
 const numTxt = (v: number) => String(v ?? 0).replace(".", ",");
 
-export function ConfigView({ meId, shop, users, techs, pw, canManageUsers }: {
-  meId: string; shop: CfgShop; users: CfgUser[]; techs: CfgTech[]; pw: PwStatus | null; canManageUsers: boolean;
+export function ConfigView({ meId, shop, users, techs, pw, plate, canManageUsers }: {
+  meId: string; shop: CfgShop; users: CfgUser[]; techs: CfgTech[]; pw: PwStatus | null; plate: PlateStatus | null; canManageUsers: boolean;
 }) {
   const sb = createClient();
   const router = useRouter();
@@ -73,6 +74,18 @@ export function ConfigView({ meId, shop, users, techs, pw, canManageUsers }: {
     if (error) return toast(errMsg(error), { err: true });
     setSdNova(""); setSdConf("");
     toast(pw?.active ? "Senha de autorização trocada" : "Senha de autorização criada", { sound: "ok" });
+    router.refresh();
+  }
+
+  // ---------- token da consulta de placa (fica em shop_secrets; a tela nunca lê o token) ----------
+  const [tkNovo, setTkNovo] = useState("");
+  async function salvarToken(remover = false) {
+    const t = remover ? "" : tkNovo.trim();
+    if (!remover && t.length < 16) return toast("Cole o token completo da API.", { err: true });
+    const { error } = await sb.rpc("set_plate_api_token", { p_token: t });
+    if (error) return toast(errMsg(error), { err: true });
+    setTkNovo("");
+    toast(remover ? "Token removido" : "Token salvo", { sound: "ok" });
     router.refresh();
   }
 
@@ -168,8 +181,17 @@ export function ConfigView({ meId, shop, users, techs, pw, canManageUsers }: {
 
       <section className="panel"><div className="ph"><h2>Consulta de placa</h2></div><div className="stack">
         <label className="field"><span className="label">Provedor da API</span>
-          <input className="input" value={of.plate_api_provider} placeholder="Ex.: API Placas, WDAPI, Placa Fipe…" onChange={e => setOf({ ...of, plate_api_provider: e.target.value })} onBlur={() => saveText("plate_api_provider")} /></label>
-        <p className="hint" style={{ margin: 0 }}>O token de acesso fica guardado como segredo da Edge Function plate-lookup no Supabase, nunca no navegador.</p>
+          <input className="input" value={of.plate_api_provider} placeholder="Placa FIPE" onChange={e => setOf({ ...of, plate_api_provider: e.target.value })} onBlur={() => saveText("plate_api_provider")} /></label>
+        <form className="stack" onSubmit={e => { e.preventDefault(); void salvarToken(); }}>
+          <label className="field"><span className="label">Token da API {plate?.active ? <span className="chip ok">Ativo · final <span className="mono">{plate.last4}</span></span> : <span className="chip bad">Não informado</span>}</span>
+            <input className="input mono" type="password" autoComplete="off" spellCheck={false} value={tkNovo} placeholder={plate?.active ? "Cole um novo token para trocar" : "Cole aqui o token da Placa FIPE"} onChange={e => setTkNovo(e.target.value)} /></label>
+          {plate?.active && <span className="hint">Definido{plate.set_by ? ` por ${plate.set_by}` : ""} em {plate.set_at ? dt(plate.set_at) : "—"}</span>}
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <button className="key accent" type="submit">{plate?.active ? "Trocar token" : "Salvar token"}</button>
+            {plate?.active && <button className="key" type="button" onClick={() => void salvarToken(true)}>Remover</button>}
+          </div>
+        </form>
+        <p className="hint" style={{ margin: 0 }}>O token fica guardado só no servidor: depois de salvo, ninguém consegue vê-lo pela tela. A consulta usa a API Placa FIPE e guarda o resultado de cada placa por 30 dias, para economizar consultas.</p>
       </div></section>
 
       <section className="panel"><div className="ph"><h2>Senha de autorização de desconto</h2>{pw?.active ? <span className="chip ok">Ativa</span> : <span className="chip bad">Não criada</span>}</div><div className="stack">

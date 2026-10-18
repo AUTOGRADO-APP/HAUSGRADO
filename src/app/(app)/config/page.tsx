@@ -1,17 +1,18 @@
 // Configurações (engrenagem, só master — o middleware bloqueia os demais perfis).
 import { createClient, getMe } from "@/lib/supabase/server.ts";
-import { ConfigView, type CfgShop, type CfgUser, type CfgTech, type PwStatus } from "./ConfigView.tsx";
+import { ConfigView, type CfgShop, type CfgUser, type CfgTech, type PwStatus, type PlateStatus } from "./ConfigView.tsx";
 
 export const dynamic = "force-dynamic";
 
 export default async function ConfigPage() {
   const sb = await createClient();
   const me = await getMe();
-  const [shop, users, techs, pw] = await Promise.all([
+  const [shop, users, techs, pw, plateSt] = await Promise.all([
     sb.from("shops").select("id, name, portal_base_url, plate_api_provider, commission_pct, fee_debit_pct, fee_pix_pct, fee_credit_pct").maybeSingle(),
     sb.from("profiles").select("id, full_name, username, role, active").order("full_name"),
     sb.from("technicians").select("id, name, active").eq("active", true).order("name"),
     sb.rpc("discount_password_status"),
+    sb.rpc("plate_api_status"),
   ]);
   const s = shop.data as (CfgShop & { fee_credit_pct: (number | string)[] }) | null;
   const err = shop.error || users.error || techs.error;
@@ -28,6 +29,7 @@ export default async function ConfigPage() {
           users={(users.data ?? []) as CfgUser[]}
           techs={(techs.data ?? []) as CfgTech[]}
           pw={(pw.data as PwStatus | null) ?? null}
+          plate={(plateSt.data as PlateStatus | null) ?? null}
           canManageUsers={!!process.env.SUPABASE_SERVICE_ROLE_KEY}
         />
       )}
