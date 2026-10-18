@@ -48,7 +48,7 @@ const NAV: { k: string; href: string; l: string; fin?: boolean }[] = [
   { k: "servcat", href: "/servicos", l: "Serviços" },
   { k: "historico", href: "/historico", l: "Histórico de O.S." },
 ];
-const SUB: [string, string][] = [["/financeiro/entradas", "Entradas"], ["/financeiro/compras", "Compras"], ["/financeiro/despesas", "Despesas"], ["/financeiro/fornecedores", "Fornecedores"], ["/financeiro/comissoes", "Comissões"], ["/financeiro/calendario", "Calendário financeiro"]];
+const SUB: [string, string][] = [["/financeiro/entradas", "Entradas"], ["/financeiro/compras", "Compras"], ["/financeiro/despesas", "Despesas"], ["/financeiro/fornecedores", "Fornecedores"], ["/financeiro/comissoes", "Comissões"], ["/financeiro/metas", "Metas"], ["/financeiro/calendario", "Calendário financeiro"]];
 
 const ISOM = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" /><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /></svg>;
 const ISOMX = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" /><path d="M17 9l5 6M22 9l-5 6" /></svg>;

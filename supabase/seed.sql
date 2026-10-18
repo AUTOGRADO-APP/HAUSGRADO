@@ -82,3 +82,8 @@ insert into public.quote_items (shop_id, quote_id, kind, description, details, q
 -- Aprova depois de lançar os itens (orçamento aprovado fica travado para edição)
 update public.quotes set status = 'aprovado', decided_at = now(), decided_by = 'oficina'
  where id in ('00000000-0000-4000-8000-0000000000f2', '00000000-0000-4000-8000-0000000000f3') and status = 'rascunho';
+
+-- Metas de faturamento do mês atual (Financeiro > Metas)
+insert into public.revenue_goals (shop_id, month, goal, super_goal)
+values ('00000000-0000-4000-8000-000000000001', date_trunc('month', now() at time zone 'America/Sao_Paulo')::date, 1500.00, 2000.00)
+on conflict (shop_id, month) do nothing;

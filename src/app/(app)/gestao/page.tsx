@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server.ts";
 import { brl } from "@/lib/rules.ts";
 import { MESES, TIPOS, addDays, fmtDias, iniciais, ymd } from "@/lib/labels.ts";
 import { addMonth, computeGestao, variacao, type GOrder, type GQuote, type GTech } from "@/lib/gestao.ts";
+import { faixaMes, type Meta } from "@/lib/metas.ts";
+import { MetaPanel } from "@/components/MetaPanel.tsx";
 import { LineChart } from "./LineChart.tsx";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +46,8 @@ export default async function GestaoPage({ searchParams }: { searchParams: Promi
   const qsel = "id, service_order_id, status, discount, created_at, quote_items(kind, description, qty, unit_price)";
 
   const sb = await createClient();
-  const [os, qOs, qAb, nAp, nRe, techs, shop] = await Promise.all([
+  const [mIni, mFim] = faixaMes(mes);
+  const [os, qOs, qAb, nAp, nRe, techs, shop, rec, meta] = await Promise.all([
     sb.from("service_orders").select("id, status, entry_type, entered_at, exited_at, technician_id")
       .or(`status.neq.finalizado,exited_at.gte.${desdeISO}`),
     sb.from("quotes").select(qsel + ", service_orders!inner(status, exited_at)")
@@ -54,6 +57,8 @@ export default async function GestaoPage({ searchParams }: { searchParams: Promi
     sb.from("quotes").select("id", { count: "exact", head: true }).eq("status", "recusado"),
     sb.from("technicians").select("id, name, active"),
     sb.from("shops").select("commission_pct").maybeSingle(),
+    sb.from("receipts").select("total").gte("received_at", mIni).lt("received_at", mFim),
+    sb.from("revenue_goals").select("month, goal, super_goal").eq("month", mes + "-01").maybeSingle(),
   ]);
   const err = os.error || qOs.error || qAb.error || techs.error;
 
@@ -71,6 +76,9 @@ export default async function GestaoPage({ searchParams }: { searchParams: Promi
   const pm = (M.pecas + M.mao) || 1, pPec = Math.round(M.pecas / pm * 100);
   const fdia = (k: string) => new Date(k + "T12:00:00Z").toLocaleDateString("pt-BR", { timeZone: "UTC", weekday: "short", day: "2-digit", month: "2-digit" });
   const pctTxt = String(pct).replace(".", ",");
+  const recebido = (rec.data ?? []).reduce((a, r) => a + Number((r as { total: number }).total), 0);
+  const mrow = meta.data as { month: string; goal: number; super_goal: number } | null;
+  const metaMes: Meta | null = mrow ? { month: mrow.month, goal: Number(mrow.goal), super_goal: Number(mrow.super_goal) } : null;
 
   return (
     <main id="view">
@@ -101,6 +109,8 @@ export default async function GestaoPage({ searchParams }: { searchParams: Promi
           <div className="kpi"><span className="label">Tempo médio de pátio</span><strong>{fmtDias(M.tempo)}</strong>
             <div className="kpi-f"><Delta a={M.tempo} b={P.tempo} inv /><span className="hint">{nAnt}: {fmtDias(P.tempo)}</span></div></div>
         </div>
+
+        <MetaPanel titulo="Meta de faturamento" mes={mes} nomeMes={nm} fat={recebido} meta={metaMes} hoje={hoje} nRec={rec.data?.length ?? 0} />
 
         <section className="panel g-chart">
           <div className="ph">
