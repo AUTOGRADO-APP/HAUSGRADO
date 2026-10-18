@@ -42,8 +42,13 @@ export function sfx(k: SfxKey) {
   } catch { /* sem áudio */ }
 }
 
-export const getTheme = (): "light" | "dark" => (document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
-export function setTheme(t: "light" | "dark") {
+export type Tema = "light" | "dark" | "haus";
+export const TEMAS: readonly { id: Tema; nome: string }[] = [{ id: "light", nome: "Claro" }, { id: "dark", nome: "Escuro" }, { id: "haus", nome: "Haus" }];
+export const getTheme = (): Tema => {
+  const t = document.documentElement.getAttribute("data-theme");
+  return t === "dark" || t === "haus" ? t : "light";
+};
+export function setTheme(t: Tema) {
   document.documentElement.setAttribute("data-theme", t);
   try { localStorage.setItem("autogrado-tema", t); } catch { /* sem storage */ }
 }

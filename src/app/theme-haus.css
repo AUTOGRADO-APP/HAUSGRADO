@@ -1,0 +1,136 @@
+/* Tema "Haus": grafite (#1c1c1c / #262626) com dois destaques.
+   Laranja #f58233 = ação e dinheiro: botões principais, + Nova O.S., valores em R$, alertas que pedem atenção, LCD.
+   Roxo #7c51a1 = onde você está e o que está selecionado: menu ativo, abas, etapa atual da O.S., badges de seção,
+   seleção (cartões, dias, linhas), foco, links e comparativos (período anterior no gráfico).
+   Texto sobre laranja usa grafite (contraste ~7:1); sobre roxo, branco (~5,9:1). Roxo como texto usa o tom claro --accent-2-text.
+   Só sobrescreve o que o claro/escuro definem em globals.css; nenhuma regra aqui vale fora de data-theme="haus". */
+
+html[data-theme="haus"]{
+  --bg:#1c1c1c; --card:#262626; --text:#ECE7E2;
+  --accent:#f58233; --accent-ink:#1c1c1c;
+  --accent-2:#7c51a1; --accent-2-ink:#ffffff; --accent-2-text:#b996dc;
+  --ring:0 0 0 3px rgba(124,81,161,.45);
+  --border:rgba(236,231,226,.08); --border-strong:rgba(236,231,226,.16);
+  --muted:rgba(236,231,226,.6);
+  --success:#34B86A; --danger:#E06767; --input-bg:#1f1f1f;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.4);
+  --select-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23ECE7E2' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  color-scheme:dark;
+}
+
+/* ---------- laranja: texto escuro sobre o laranja ---------- */
+html[data-theme="haus"] .pill{box-shadow:0 4px 14px rgba(245,130,51,.35)}
+html[data-theme="haus"] :is(.bell.hot,.bell.hot:hover,.chip.warn,.cal-c,.nv-it.warn .nv-ic){color:var(--accent-ink)}
+html[data-theme="haus"] .bell.hot{box-shadow:0 4px 14px rgba(245,130,51,.3)}
+html[data-theme="haus"] .lcd-led{box-shadow:0 0 6px var(--lcd-on),0 0 12px rgba(245,130,51,.6)}
+
+/* ---------- roxo: navegação e posição ---------- */
+html[data-theme="haus"] .side-nav .key:hover{background:color-mix(in srgb,var(--accent-2) 10%,var(--bg));color:var(--text);border-color:transparent}
+html[data-theme="haus"] .side-nav .key.on{background:color-mix(in srgb,var(--accent-2) 22%,var(--card));border-color:color-mix(in srgb,var(--accent-2) 60%,transparent);box-shadow:inset 3px 0 0 var(--accent-2);color:var(--text)}
+html[data-theme="haus"] .side-nav .key.on .ic,
+html[data-theme="haus"] .keys .key.on .ic{color:var(--accent-2-text)}
+html[data-theme="haus"] .side-nav .key.sub.on{color:var(--accent-2-text);background:transparent;border-color:transparent;box-shadow:none}
+html[data-theme="haus"] .sub-nav{border-left-color:color-mix(in srgb,var(--accent-2) 55%,transparent)}
+html[data-theme="haus"] .theme button.on{background:var(--accent-2);color:var(--accent-2-ink)}
+html[data-theme="haus"] .gear:hover,html[data-theme="haus"] .gear.on{color:var(--accent-2-text);border-color:var(--accent-2)}
+
+/* badge de seção (01, 02…) e número das colunas do quadro: estrutura, não ação */
+html[data-theme="haus"] .ph h2::before{background:var(--accent-2);color:var(--accent-2-ink)}
+html[data-theme="haus"] .col-h .t i,
+html[data-theme="haus"] .col-tabs button i,
+html[data-theme="haus"] .col-tabs button.on i{color:var(--accent-2-text)}
+html[data-theme="haus"] .col-tabs button.on b{background:var(--accent-2);color:var(--accent-2-ink)}
+html[data-theme="haus"] .col.over{border-color:var(--accent-2);box-shadow:var(--ring)}
+
+/* abas e etapa atual da O.S. */
+html[data-theme="haus"] .tabs .key.accent{background:var(--accent-2);border-color:var(--accent-2);color:var(--accent-2-ink)}
+html[data-theme="haus"] .tabs .key.accent .count{background:rgba(255,255,255,.22);color:#fff}
+html[data-theme="haus"] :is(.tabs .key.on,.tabs .key.on:hover){background:var(--accent-2);border-color:var(--accent-2);color:var(--accent-2-ink)}
+html[data-theme="haus"] .tabs .key.on .count{background:rgba(255,255,255,.22);color:#fff}
+html[data-theme="haus"] .stbar .key.on{background:color-mix(in srgb,var(--accent-2) 24%,var(--card));border-color:var(--accent-2);color:var(--text);box-shadow:inset 0 -3px 0 var(--accent-2)}
+html[data-theme="haus"] .stbar .key.on.fin{background:var(--success);border-color:var(--success);color:var(--bg);box-shadow:none}
+html[data-theme="haus"] .step.done .bar,
+html[data-theme="haus"] .pt-line li.on::before{background:var(--accent-2);border-color:var(--accent-2)}
+html[data-theme="haus"] .step.done.fin .bar{background:var(--success)}
+
+/* botões de contorno: hover em roxo; o laranja fica para o que executa */
+html[data-theme="haus"] .key:hover{border-color:var(--accent-2);color:var(--accent-2-text)}
+html[data-theme="haus"] .key.on{border-color:var(--accent-2);color:var(--accent-2-text)}
+html[data-theme="haus"] .keys .key.on{background:color-mix(in srgb,var(--accent-2) 22%,var(--card));border-color:color-mix(in srgb,var(--accent-2) 60%,transparent);color:var(--text)}
+html[data-theme="haus"] :is(.key.accent,.key.wa):hover{color:var(--accent-ink);border-color:var(--accent)}
+html[data-theme="haus"] :is(.key.danger,.key.danger:hover){color:#fff;border-color:var(--danger)}
+html[data-theme="haus"] .tabs .key.accent:hover{color:var(--accent-2-ink);border-color:var(--accent-2)}
+html[data-theme="haus"] .stbar .key.on:hover{color:var(--text)}
+html[data-theme="haus"] .stbar .key.on.fin:hover{color:var(--bg)}
+
+/* opções marcadas (características do produto, tipo de entrada etc.) */
+html[data-theme="haus"] .opt:hover{border-color:var(--accent-2)}
+html[data-theme="haus"] .opt.on{background:var(--accent-2);border-color:var(--accent-2);color:var(--accent-2-ink)}
+html[data-theme="haus"] input[type=checkbox],html[data-theme="haus"] input[type=radio]{accent-color:var(--accent-2)}
+
+/* seleção */
+html[data-theme="haus"] :is(.cal-d.sel,.com-card.sel,.sv-card.sel){border-color:var(--accent-2);box-shadow:var(--ring)}
+html[data-theme="haus"] tr.sel td,
+html[data-theme="haus"] table.tm tr.sel{border-color:var(--accent-2)}
+html[data-theme="haus"] :is(.slot,.drop,.nv-it):hover,html[data-theme="haus"] .drop.over{border-color:var(--accent-2)}
+
+/* foco: anel roxo, bem visível no grafite */
+html[data-theme="haus"] :is(.key,input,select,textarea,.theme button,.gear,.mnav-btn,.side-x):focus-visible,
+html[data-theme="haus"] :is(.input,.it-in):focus,
+html[data-theme="haus"] .plate-input:focus-within,
+html[data-theme="haus"] .opt:focus-within{border-color:var(--accent-2);box-shadow:var(--ring)}
+html[data-theme="haus"] .mascot:focus-visible{outline-color:var(--accent-2)}
+html[data-theme="haus"] .bs-in{border-color:var(--accent-2)}
+
+/* links e textos de apoio */
+html[data-theme="haus"] .lnk,
+html[data-theme="haus"] .pw-eye:hover{color:var(--accent-2-text)}
+html[data-theme="haus"] .toast-undo{color:var(--accent-2)}
+html[data-theme="haus"] .toast.err .toast-undo{color:#fff}
+html[data-theme="haus"] .label[style*="--accent"]{color:var(--accent-2-text)!important}
+html[data-theme="haus"] .avatar{background:var(--accent-2);color:var(--accent-2-ink)}
+html[data-theme="haus"] .mec header .avatar{background:var(--accent-2);color:var(--accent-2-ink)}
+
+/* ---------- cartões de destaque ---------- */
+html[data-theme="haus"] .kpi.main{background:linear-gradient(150deg,color-mix(in srgb,var(--accent-2) 34%,#1c1c1c),color-mix(in srgb,var(--accent-2) 12%,#1c1c1c));color:var(--text);border-color:color-mix(in srgb,var(--accent-2) 55%,transparent)}
+html[data-theme="haus"] .kpi.main .label,html[data-theme="haus"] .kpi.main .hint{color:var(--text);opacity:.75}
+html[data-theme="haus"] .ent-split{background:rgba(255,255,255,.08)}
+html[data-theme="haus"] .ent-nums{border-top-color:rgba(255,255,255,.14)}
+html[data-theme="haus"] .next{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--card))}
+
+/* formas de pagamento: Pix laranja, crédito roxo, débito e dinheiro em cinzas */
+html[data-theme="haus"] .sg-credito,html[data-theme="haus"] .meter span.sg-credito,html[data-theme="haus"] .kpi.main .sg-credito{background:#9b72c4}
+html[data-theme="haus"] .sg-debito,html[data-theme="haus"] .meter span.sg-debito,html[data-theme="haus"] .kpi.main .sg-debito{background:#8a8a8a}
+html[data-theme="haus"] .sg-dinheiro,html[data-theme="haus"] .meter span.sg-dinheiro,html[data-theme="haus"] .kpi.main .sg-dinheiro{background:#555}
+
+/* gráfico da Gestão: últimos 7 dias em laranja, 7 dias anteriores em roxo */
+html[data-theme="haus"] .lc-prev{stroke:var(--accent-2-text);stroke-opacity:.8}
+html[data-theme="haus"] .lc-dp{stroke:var(--accent-2-text);stroke-opacity:.8}
+html[data-theme="haus"] .sw.prev{background:repeating-linear-gradient(90deg,var(--accent-2-text) 0 5px,transparent 5px 8px);opacity:1}
+html[data-theme="haus"] .lc-tip{background:#ECE7E2;color:#1c1c1c}
+html[data-theme="haus"] .lc-tip em.up{color:#1f8a4c}
+html[data-theme="haus"] .lc-tip em.down{color:#c23b3b}
+
+/* composição peças × mão de obra */
+html[data-theme="haus"] .split-bar .b{background:var(--accent-2)}
+
+/* modal e fundo do menu do celular */
+html[data-theme="haus"] .modal-bg,html[data-theme="haus"] .side-bg{background:rgba(0,0,0,.6)}
+html[data-theme="haus"] .modal{box-shadow:0 20px 60px rgba(0,0,0,.6)}
+
+/* impressão: igual aos outros temas (preto e branco) */
+@media print{
+  html[data-theme="haus"]{--bg:#fff;--card:#fff;--text:#000;--muted:#000;--accent:#000;--accent-2:#000;--accent-2-text:#000;--border:#e3e3e3;--border-strong:#000;--shadow:none;--ring:none;color-scheme:light}
+  html[data-theme="haus"] .ph h2::before{background:#000;color:#fff}
+  html[data-theme="haus"] .kpi.main{background:#fff;color:#000}
+}
+
+/* Seletor com três temas (vale para todos): a barra do topo continua cabendo em 1280px sem empurrar o + Nova O.S. para fora */
+@media (min-width:981px) and (max-width:1440px){
+  .theme button{padding:8px 9px;font-size:10pt}
+  body:has(.side) .top-r{gap:8px}
+  body:has(.side) .lcd-tick{min-width:140px}
+  .top-r .nova{flex:none}
+  .clock{min-width:0;padding:6px 12px}
+  .clock span{white-space:nowrap;font-size:8.5pt}
+}

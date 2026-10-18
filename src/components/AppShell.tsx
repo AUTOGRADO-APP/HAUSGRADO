@@ -11,7 +11,7 @@ import { PAPEIS, dataBR, iniciais, primeiroNome, ymd } from "@/lib/labels.ts";
 import { msgLemb, waURL } from "@/lib/msgs.ts";
 import { qtdBR } from "@/lib/estoque.ts";
 import { poseFor } from "@/lib/sprite.ts";
-import { copyText, errMsg, getTheme, setSom, setTheme, sfx, somOn, toast } from "@/lib/ui.ts";
+import { copyText, errMsg, getTheme, setSom, setTheme, sfx, somOn, TEMAS, toast, type Tema } from "@/lib/ui.ts";
 import type { ShellData, ShellBill } from "@/lib/types.ts";
 import { MascotButton } from "./Mascot.tsx";
 import { Plate } from "./Plate.tsx";
@@ -232,7 +232,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
   const path = usePathname() || "/";
   const router = useRouter();
   const [som, setSomS] = useState(true);
-  const [tema, setTema] = useState<"light" | "dark">("light");
+  const [tema, setTema] = useState<Tema>("light");
   const [lemb, setLemb] = useState(false);
   const [menu, setMenu] = useState(false);   // menu retrátil do celular (≤ 980px)
   useTabelasCartao();
@@ -299,8 +299,8 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
               onClick={() => { const v = !som; setSom(v); setSomS(v); if (v) sfx("tap"); }}>{som ? ISOM : ISOMX}</button>
             {master && <Link className={`gear ${cur("/config") ? "on" : ""}`} href="/config" aria-label="Configurações" title="Configurações" onClick={() => sfx("tap")}>{IGEAR}</Link>}
             <div className="theme" role="group" aria-label="Tema">
-              {(["light", "dark"] as const).map(t => (
-                <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} onClick={() => { setTheme(t); setTema(t); sfx("tap"); }}>{t === "light" ? "Claro" : "Escuro"}</button>
+              {TEMAS.map(({ id: t, nome }) => (
+                <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} onClick={() => { setTheme(t); setTema(t); sfx("tap"); }}>{nome}</button>
               ))}
             </div>
             <Clock />
@@ -335,8 +335,8 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
               {master && <Link className={`key ${cur("/config") ? "on" : ""}`} href="/config" onClick={() => { sfx("tap"); setMenu(false); }}>{IGEAR}<span>Configurações</span></Link>}
               <div className="row side-prefs">
                 <div className="theme" role="group" aria-label="Tema">
-                  {(["light", "dark"] as const).map(t => (
-                    <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} onClick={() => { setTheme(t); setTema(t); sfx("tap"); }}>{t === "light" ? "Claro" : "Escuro"}</button>
+                  {TEMAS.map(({ id: t, nome }) => (
+                    <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} onClick={() => { setTheme(t); setTema(t); sfx("tap"); }}>{nome}</button>
                   ))}
                 </div>
                 <button className="gear" aria-label={som ? "Desligar sons" : "Ligar sons"} title={som ? "Sons ligados" : "Sons desligados"}
