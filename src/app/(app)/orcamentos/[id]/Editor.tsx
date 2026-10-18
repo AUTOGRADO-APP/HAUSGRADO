@@ -250,8 +250,8 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
         {!locked && <div className="row" style={{ marginTop: 12 }}>
           <button className="key" onClick={() => void insert({ kind: "peca", description: "", unit_price: 0 }, true)}>+ Peça</button>
           <button className="key" onClick={() => void insert({ kind: "mao", description: "Mão de obra", unit_price: 0 }, true)}>+ Mão de obra</button>
-          <button className="key accent" onClick={() => { setModal("pecas"); sfx("tap"); }}>+ Peça cadastrada</button>
-          <button className="key accent" onClick={() => { setModal("serv"); sfx("tap"); }}>+ Serviço cadastrado</button>
+          <button className="key" onClick={() => { setModal("pecas"); sfx("tap"); }}>+ Peça cadastrada</button>
+          <button className="key" onClick={() => { setModal("serv"); sfx("tap"); }}>+ Serviço cadastrado</button>
         </div>}
         <div className="grid2" style={{ marginTop: 14 }}>
           <div className="field"><span className="label">Desconto (R$)</span>
@@ -278,7 +278,8 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
           </div>
           <div className="stack" style={{ marginTop: 14, gap: 8 }}>
             <div className="muted">{q.plate ? `Placa ${q.plate} · ` : ""}{c?.name || "Sem cliente"}</div>
-            <a className="key wa" {...(wa ? { href: wa, target: "_blank", rel: "noopener" } : { "aria-disabled": true })}
+            {/* enviar é o passo principal só enquanto o orçamento está em rascunho */}
+            <a className={`key ${q.status === "rascunho" ? "wa" : ""}`} {...(wa ? { href: wa, target: "_blank", rel: "noopener" } : { "aria-disabled": true })}
               onClick={e => { if (!wa) { e.preventDefault(); return; } void enviado(); }}>Enviar orçamento no WhatsApp</a>
             <button className="key" onClick={() => void copyText(msg)}>Copiar texto do orçamento</button>
             <button className="key" onClick={() => void go(`/orcamentos/${q.id}/pdf`)}>Gerar PDF do orçamento</button>

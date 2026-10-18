@@ -3,7 +3,7 @@
 // Uso: <MicButton onText={t => setTexto(v => juntarDitado(v, t))} onInterim={setParcial} />
 // onText recebe o texto final de cada frase; onInterim (opcional) recebe o trecho ainda parcial ("" ao terminar).
 // Fica escondido quando o navegador não oferece a API.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "@/lib/ui.ts";
 import { IMIC } from "./icons.tsx";
 
@@ -34,14 +34,14 @@ export function juntarDitado(atual: string | null | undefined, novo: string) {
   return txt.charAt(0).toUpperCase() + txt.slice(1);
 }
 
-export function MicButton({ onText, onInterim, className = "" }: {
-  onText: (t: string) => void; onInterim?: (t: string) => void; className?: string;
+export function MicButton({ onText, onInterim, onEnd, className = "", label = "Ditar", icon = IMIC }: {
+  onText: (t: string) => void; onInterim?: (t: string) => void; onEnd?: () => void; className?: string; label?: string; icon?: ReactNode;
 }) {
   const [ok, setOk] = useState(false);
   const [rec, setRec] = useState(false);
   const r = useRef<SR | null>(null);
-  const cbs = useRef({ onText, onInterim });
-  cbs.current = { onText, onInterim };
+  const cbs = useRef({ onText, onInterim, onEnd });
+  cbs.current = { onText, onInterim, onEnd };
 
   useEffect(() => { setOk(!!getSR()); return () => { r.current?.stop(); }; }, []);
   if (!ok) return null;
@@ -68,6 +68,7 @@ export function MicButton({ onText, onInterim, className = "" }: {
     };
     s.onend = () => {
       cbs.current.onInterim?.("");
+      cbs.current.onEnd?.();
       setRec(false);
       if (r.current === s) r.current = null;
       if (ATIVO === s) ATIVO = null;
@@ -81,7 +82,7 @@ export function MicButton({ onText, onInterim, className = "" }: {
     <button type="button" className={`key sm mic ${rec ? "rec" : ""} ${className}`.trim()}
       aria-label={rec ? "Parar ditado" : "Ditar por voz"} aria-pressed={rec}
       onClick={e => { e.preventDefault(); if (rec) parar(); else iniciar(); }}>
-      {IMIC}{rec ? "Ouvindo… parar" : "Ditar"}
+      {icon}{rec ? "Ouvindo… parar" : label}
     </button>
   );
 }
