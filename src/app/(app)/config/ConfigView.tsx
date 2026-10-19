@@ -111,7 +111,7 @@ export function ConfigView({ meId, shop, users, techs, pw, canManageUsers }: {
     <div className="grid2">
       <section className="panel" style={{ gridColumn: "1/-1" }}>
         <div className="ph"><h2>Usuários e acessos</h2><span className="hint">Master: tudo · Administrador: tudo menos Configurações · Atendente: sem Configurações, Gestão e Comissões</span></div>
-        {!canManageUsers && <div className="banner" style={{ marginBottom: 12 }}><span>Para gerenciar usuários, adicione SUPABASE_SERVICE_ROLE_KEY nas variáveis do projeto na Vercel.</span></div>}
+        {!canManageUsers && <div className="banner" style={{ marginBottom: 12 }}><span>Este deploy não tem a SUPABASE_SERVICE_ROLE_KEY. Na Vercel, confira se a variável está marcada para Production e faça um Redeploy do último deploy.</span></div>}
         <div className="tbl-wrap"><table>
           <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Situação</th><th></th></tr></thead>
           <tbody>{users.map(u => {
