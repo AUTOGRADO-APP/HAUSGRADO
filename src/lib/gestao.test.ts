@@ -102,3 +102,19 @@ test("gestão: precisa de atenção", () => {
   assert.deepEqual(A.entrega, { n: 2, v: 600 });
   assert.deepEqual(A.vencidas, { n: 2, v: 100.5 });
 });
+
+test("gestão: entrada fantasma soma no faturamento, mas não conta como O.S. nem vai para mecânico", () => {
+  const G = computeGestao({
+    orders: [os("a", "t1")], quotes: [orc("qa", "a", "aprovado", [["mao", 200]])],
+    techs: [{ id: "t1", name: "Arthur", active: true }], commissionPct: 5, mes: "2026-10", hoje: "2026-10-19",
+    receipts: [rec("a", "2026-10-05T10:00:00-03:00", 200), { service_order_id: null, received_at: "2026-10-02T12:00:00-03:00", total: 1000, difference: 0 }],
+  });
+  assert.equal(G.M.fat, 1200);
+  assert.equal(G.M.n, 1);
+  assert.equal(G.M.ticket, 200);
+  assert.equal(G.M.fantasma, 1000);
+  assert.equal(G.cur[1].v, 1000);
+  assert.equal(G.cur[1].n, 0);
+  assert.equal(G.mec.length, 1);
+  assert.equal(G.mec[0].fat, 200);
+});
