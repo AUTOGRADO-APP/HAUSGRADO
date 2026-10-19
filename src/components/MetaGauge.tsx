@@ -11,7 +11,8 @@ const W = 340, CX = 170, CY = 178, R = 136, SW = 20;
 /** Ponto do arco para a fração f (0 = esquerda, 1 = direita), no raio r. */
 const pt = (f: number, r = R) => {
   const a = Math.PI * (1 - f);
-  return [CX + r * Math.cos(a), CY - r * Math.sin(a)] as const;
+  // arredondado: servidor e navegador geram o mesmo texto (evita aviso de hidratação)
+  return [Math.round((CX + r * Math.cos(a)) * 100) / 100, Math.round((CY - r * Math.sin(a)) * 100) / 100] as const;
 };
 const arco = (f0: number, f1: number, r = R) => {
   const [x0, y0] = pt(f0, r), [x1, y1] = pt(f1, r);

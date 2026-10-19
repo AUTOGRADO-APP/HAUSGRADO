@@ -20,7 +20,6 @@ export function MetaPanel({ titulo, mes, nomeMes, fat, meta, hoje, nRec, editar 
     );
   }
   const s = metaStatus(fat, meta, mes, hoje);
-  const corrente = mes === hoje.slice(0, 7);
   return (
     <section className="panel mg-panel">
       <div className="ph">
@@ -29,22 +28,31 @@ export function MetaPanel({ titulo, mes, nomeMes, fat, meta, hoje, nRec, editar 
       </div>
       <div className="mg-body">
         <MetaGauge fat={fat} goal={meta.goal} superGoal={meta.super_goal} nivel={s.nivel} pctMeta={s.pctMeta} />
-        <dl className="mg-nums">
-          <div><dt>META</dt><dd className="mono">{brl(meta.goal)}</dd>
-            <span className={`hint ${s.faltaMeta ? "" : "mg-ok"}`}>{s.faltaMeta ? `Faltam ${brl(s.faltaMeta)}` : "✓ Batida"}</span></div>
-          <div><dt>SUPER META</dt><dd className="mono">{brl(meta.super_goal)}</dd>
-            <span className={`hint ${s.faltaSuper ? "" : "mg-ok"}`}>{s.faltaSuper ? `Faltam ${brl(s.faltaSuper)} · ${s.pctSuper}%` : "✓ Batida"}</span></div>
-          {corrente ? <>
-            <div><dt>Para bater a meta</dt><dd className="mono">{s.faltaMeta ? brl(s.porDiaMeta) : "—"}</dd>
-              <span className="hint">{s.faltaMeta ? `por dia nos ${s.diasRest} dia${s.diasRest === 1 ? "" : "s"} que restam` : "Agora é a super meta"}</span></div>
-            <div><dt>Projeção do mês</dt><dd className="mono">{brl(s.projecao)}</dd>
-              <span className="hint">no ritmo atual{s.projecao >= meta.super_goal ? " · passa da super meta" : s.projecao >= meta.goal ? " · bate a meta" : ""}</span></div>
-          </> : <>
-            <div><dt>Resultado</dt><dd className="mono">{s.pctMeta}%</dd><span className="hint">da meta</span></div>
-            <div><dt>Diferença</dt><dd className="mono">{brl(fat - meta.goal)}</dd><span className="hint">em relação à meta</span></div>
-          </>}
-        </dl>
+        <MetaNums meta={meta} fat={fat} mes={mes} hoje={hoje} />
       </div>
     </section>
+  );
+}
+
+/** Os 4 números de apoio da meta (META, SUPER META, ritmo/projeção ou resultado). */
+export function MetaNums({ meta, fat, mes, hoje }: { meta: Meta; fat: number; mes: string; hoje: string }) {
+  const s = metaStatus(fat, meta, mes, hoje);
+  const corrente = mes === hoje.slice(0, 7);
+  return (
+    <dl className="mg-nums">
+      <div><dt>META</dt><dd className="mono">{brl(meta.goal)}</dd>
+        <span className={`hint ${s.faltaMeta ? "" : "mg-ok"}`}>{s.faltaMeta ? `Faltam ${brl(s.faltaMeta)}` : "✓ Batida"}</span></div>
+      <div><dt>SUPER META</dt><dd className="mono">{brl(meta.super_goal)}</dd>
+        <span className={`hint ${s.faltaSuper ? "" : "mg-ok"}`}>{s.faltaSuper ? `Faltam ${brl(s.faltaSuper)} · ${s.pctSuper}%` : "✓ Batida"}</span></div>
+      {corrente ? <>
+        <div><dt>Para bater a meta</dt><dd className="mono">{s.faltaMeta ? brl(s.porDiaMeta) : "—"}</dd>
+          <span className="hint">{s.faltaMeta ? `por dia nos ${s.diasRest} dia${s.diasRest === 1 ? "" : "s"} que restam` : "Agora é a super meta"}</span></div>
+        <div><dt>Projeção do mês</dt><dd className="mono">{brl(s.projecao)}</dd>
+          <span className="hint">no ritmo atual{s.projecao >= meta.super_goal ? " · passa da super meta" : s.projecao >= meta.goal ? " · bate a meta" : ""}</span></div>
+      </> : <>
+        <div><dt>Resultado</dt><dd className="mono">{s.pctMeta}%</dd><span className="hint">da meta</span></div>
+        <div><dt>Diferença</dt><dd className="mono">{brl(fat - meta.goal)}</dd><span className="hint">em relação à meta</span></div>
+      </>}
+    </dl>
   );
 }

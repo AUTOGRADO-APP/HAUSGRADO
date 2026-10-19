@@ -20,8 +20,13 @@ export interface BoardCard {
 const colX = (box: HTMLElement, col: HTMLElement) => col.getBoundingClientRect().left - box.getBoundingClientRect().left + box.scrollLeft;
 const LABEL = Object.fromEntries(STATUSES.map(s => [s.id, s.label])) as Record<Status, string>;
 
-export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceipt }: {
+/** Filtros que a Gestão abre pelo link (?f=parados | ?f=entrega). */
+const FILTROS = { parados: "Carros parados há 3 dias ou mais", entrega: "Prontos para entrega" } as const;
+const diasNaEtapa = (o: BoardCard) => (Date.now() - new Date(o.status_since).getTime()) / 864e5;
+
+export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceipt, filtro = null }: {
   initial: BoardCard[]; fees: ShopFees; noMes: number; shopId: string; hasPassword: boolean; canUndoReceipt: boolean;
+  filtro?: keyof typeof FILTROS | null;
 }) {
   const sb = createClient();
   const router = useRouter();
@@ -91,7 +96,9 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
   }
 
   const q = normPlaca(busca);
-  const list = cards.filter(o => !busca || (q && o.plate.includes(q)) || o.customer_name.toUpperCase().includes(busca.toUpperCase()));
+  const list = cards.filter(o => (!busca || (q && o.plate.includes(q)) || o.customer_name.toUpperCase().includes(busca.toUpperCase()))
+    && (filtro !== "parados" || (o.status !== "finalizado" && diasNaEtapa(o) >= 3))
+    && (filtro !== "entrega" || o.status === "entrega"));
   const pat = cards.filter(o => o.status !== "finalizado");
   const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -117,7 +124,9 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
         <section className="panel board-wide">
           <div className="ph"><h2>Quadro de serviço</h2>
             <div className="row"><input ref={buscaRef} className="input" placeholder="Buscar placa ou cliente" value={busca} onChange={e => setBusca(e.target.value)} style={{ maxWidth: 240 }} />
-              <span className="hint">Arraste o card entre colunas ou use ‹ ›</span></div></div>
+              {filtro
+                ? <Link className="key sm on" href="/quadro" aria-label={`Tirar o filtro ${FILTROS[filtro]}`}>{FILTROS[filtro]} ✕</Link>
+                : <span className="hint">Arraste o card entre colunas ou use ‹ ›</span>}</div></div>
           {/* só no celular: atalhos para cada coluna (o quadro rola de lado, uma coluna por vez) */}
           <div className="col-tabs" role="tablist" aria-label="Etapas do quadro">
             {STATUSES.map((s, si) => (

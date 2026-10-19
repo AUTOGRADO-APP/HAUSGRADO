@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server.ts";
 import { brl, round2 } from "@/lib/rules.ts";
 import { ORC_ST } from "@/lib/labels.ts";
@@ -12,13 +13,15 @@ interface Row {
   quote_items: { qty: number; unit_price: number }[];
 }
 
-export default async function OrcamentosPage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
-  const { erro } = await searchParams;
+export default async function OrcamentosPage({ searchParams }: { searchParams: Promise<{ erro?: string; st?: string }> }) {
+  const { erro, st: stParam } = await searchParams;
+  const st = stParam && stParam in ORC_ST ? stParam : "";
   const sb = await createClient();
   const { data, error } = await sb.from("quotes")
     .select("id, number, plate, status, discount, customers(name), quote_items(qty, unit_price)")
     .order("number", { ascending: false });
-  const rows = (data ?? []) as unknown as Row[];
+  const todos = (data ?? []) as unknown as Row[];
+  const rows = st ? todos.filter(r => r.status === st) : todos;
   const nome = (c: Row["customers"]) => (Array.isArray(c) ? c[0]?.name : c?.name) || "—";
   const total = (r: Row) => round2(r.quote_items.reduce((a, i) => a + Number(i.qty) * Number(i.unit_price), 0) - (Number(r.discount) || 0));
   const chip = (s: string) => `chip ${s === "aprovado" ? "ok" : s === "recusado" ? "bad" : ""}`;
@@ -30,6 +33,12 @@ export default async function OrcamentosPage({ searchParams }: { searchParams: P
         <div className="ph"><h2>Orçamentos</h2>{/* link comum (não <Link>): a rota cria o orçamento e redireciona, não deve ser pré-carregada */}
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a className="key accent" href="/orcamentos/novo">+ Novo orçamento</a></div>
+        <div className="row" style={{ marginBottom: 12 }} role="group" aria-label="Filtrar por situação">
+          <Link className={`key sm ${st ? "" : "on"}`} href="/orcamentos">Todos <b className="mono">{todos.length}</b></Link>
+          {Object.entries(ORC_ST).map(([k, l]) => (
+            <Link key={k} className={`key sm ${st === k ? "on" : ""}`} href={`/orcamentos?st=${k}`}>{l} <b className="mono">{todos.filter(r => r.status === k).length}</b></Link>
+          ))}
+        </div>
         <div className="tbl-wrap"><table>
           <thead><tr><th>Nº</th><th>Placa</th><th>Cliente</th><th>Situação</th><th className="num">Total</th></tr></thead>
           <tbody>
@@ -42,7 +51,7 @@ export default async function OrcamentosPage({ searchParams }: { searchParams: P
                 <td className="num"><b>{brl(total(r))}</b></td>
               </OrcRow>
             ))}
-            {!rows.length && <tr><td colSpan={5}><div className="empty">Nenhum orçamento</div></td></tr>}
+            {!rows.length && <tr><td colSpan={5}><div className="empty">{st ? `Nenhum orçamento ${ORC_ST[st].toLowerCase()}` : "Nenhum orçamento"}</div></td></tr>}
           </tbody>
         </table></div>
       </section>
