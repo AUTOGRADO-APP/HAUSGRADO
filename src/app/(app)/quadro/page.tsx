@@ -5,7 +5,9 @@ import type { ShopFees } from "@/lib/rules.ts";
 
 export const dynamic = "force-dynamic";
 
-export default async function QuadroPage() {
+export default async function QuadroPage({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
+  const { f: fp } = await searchParams;
+  const filtro = fp === "parados" || fp === "entrega" ? fp : null;
   const sb = await createClient();
   const me = await getMe();
   const mesIni = ymd().slice(0, 8) + "01";
@@ -23,7 +25,7 @@ export default async function QuadroPage() {
   return (
     <>
       {error && <div className="banner"><span>Erro ao carregar o quadro: {error.message}</span></div>}
-      <Board initial={list} noMes={noMes ?? 0} shopId={me!.shop_id} canUndoReceipt={me!.role !== "atendente"}
+      <Board initial={list} filtro={filtro} noMes={noMes ?? 0} shopId={me!.shop_id} canUndoReceipt={me!.role !== "atendente"}
         fees={{ fee_debit_pct: Number(f?.fee_debit_pct ?? 0), fee_pix_pct: Number(f?.fee_pix_pct ?? 0), fee_credit_pct: (f?.fee_credit_pct ?? []).map(Number) }}
         hasPassword={!!(pw as { active?: boolean } | null)?.active} />
     </>
