@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin.ts";
 import type { Role } from "@/lib/rules.ts";
 
 export type Res = { ok: true } | { ok: false; error: string };
-const ROLES: Role[] = ["master", "admin", "atendente"];
+const ROLES: Role[] = ["master", "admin", "atendente", "mecanico"];
 const BAN = "876000h"; // ~100 anos
 
 async function guard() {

@@ -5,6 +5,8 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client.ts";
 import { digits, fmtCep, fmtFone } from "@/lib/labels.ts";
 import { errMsg, toast } from "@/lib/ui.ts";
+import { brl } from "@/lib/rules.ts";
+import { BUCKET } from "@/lib/media.ts";
 import { Plate } from "@/components/Plate.tsx";
 
 export interface CliRow {
@@ -14,17 +16,18 @@ export interface CliRow {
 interface Form { id: string | null; nome: string; telefone: string; doc: string; cep: string }
 const novo = (): Form => ({ id: null, nome: "", telefone: "", doc: "", cep: "" });
 
-export function Clientes({ rows }: { rows: CliRow[] }) {
+export function Clientes({ rows, canDelete }: { rows: CliRow[]; canDelete: boolean }) {
   const router = useRouter();
   const [busca, setBusca] = useState("");
   const [f, setF] = useState<Form>(novo);
   const [salvando, setSalvando] = useState(false);
+  const [del, setDel] = useState<{ id: string; texto: string } | null>(null);   // confirmação de exclusão
 
   const q = busca.toLowerCase(), qd = digits(busca);
   const list = rows.filter(c => !q || c.name.toLowerCase().includes(q) || (qd && digits(c.phone).includes(qd)))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const editar = (c: CliRow) => setF({ id: c.id, nome: c.name, telefone: c.phone, doc: c.document ?? "", cep: c.zip_code ?? "" });
+  const editar = (c: CliRow) => { setDel(null); setF({ id: c.id, nome: c.name, telefone: c.phone, doc: c.document ?? "", cep: c.zip_code ?? "" }); };
 
   async function salvar() {
     if (!f.nome.trim()) return toast("Informe o nome");
@@ -40,6 +43,55 @@ export function Clientes({ rows }: { rows: CliRow[] }) {
     if (error) return toast(errMsg(error), { err: true });
     toast(f.id ? "Cliente atualizado" : "Cliente cadastrado", { sound: "ok" });
     setF(novo());
+    router.refresh();
+  }
+
+  // ---------- excluir cliente (só master): leva junto O.S., orçamentos e agendamentos ----------
+  async function pedirExclusao(id: string) {
+    const sb = createClient();
+    const [{ data: oss }, { count: nOrc }, { count: nAg }, { count: nVei }] = await Promise.all([
+      sb.from("service_orders").select("id, status").eq("customer_id", id),
+      sb.from("quotes").select("id", { count: "exact", head: true }).eq("customer_id", id),
+      sb.from("appointments").select("id", { count: "exact", head: true }).eq("customer_id", id),
+      sb.from("vehicles").select("id", { count: "exact", head: true }).eq("customer_id", id),
+    ]);
+    const lista = (oss ?? []) as { id: string; status: string }[];
+    const fins = lista.filter(o => o.status === "finalizado").map(o => o.id);
+    let rec = 0;
+    if (fins.length) {
+      const { data } = await sb.from("receipts").select("total").in("service_order_id", fins);
+      rec = ((data ?? []) as { total: number }[]).reduce((a, r) => a + Number(r.total), 0);
+    }
+    const pl = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+    const partes = [
+      lista.length ? pl(lista.length, "O.S.", "O.S.") + " (com fotos e registros)" : "",
+      nOrc ? pl(nOrc, "orçamento", "orçamentos") : "",
+      nAg ? pl(nAg, "agendamento", "agendamentos") : "",
+    ].filter(Boolean);
+    let texto = partes.length ? `Também serão apagados: ${partes.join(", ")}.` : "Este cliente não tem O.S., orçamentos nem agendamentos.";
+    if (fins.length) texto += ` ${pl(fins.length, "O.S. finalizada sai", "O.S. finalizadas saem")} do Financeiro com ${brl(rec)} em entradas, as taxas e as comissões, e as peças voltam ao estoque.`;
+    if (nVei) texto += ` ${pl(nVei, "veículo continua", "veículos continuam")} cadastrado${nVei === 1 ? "" : "s"}, sem dono.`;
+    setDel({ id, texto });
+  }
+  async function excluir() {
+    if (!del) return;
+    const sb = createClient();
+    const { data: oss } = await sb.from("service_orders").select("id").eq("customer_id", del.id);
+    const ids = ((oss ?? []) as { id: string }[]).map(o => o.id);
+    let paths: string[] = [];
+    if (ids.length) {
+      const [{ data: ph }, { data: rc }] = await Promise.all([
+        sb.from("service_order_photos").select("storage_path").in("service_order_id", ids),
+        sb.from("service_order_records").select("storage_path").in("service_order_id", ids),
+      ]);
+      paths = [...(ph ?? []), ...(rc ?? [])].map(x => (x as { storage_path: string | null }).storage_path).filter(Boolean) as string[];
+    }
+    const { data, error } = await sb.from("customers").delete().eq("id", del.id).select("id");
+    if (error) return toast(errMsg(error), { err: true });
+    if (!data?.length) return toast("Só o usuário master pode excluir clientes.", { err: true });
+    if (paths.length) await sb.storage.from(BUCKET).remove(paths);
+    toast("Cliente excluído");
+    setDel(null); setF(novo());
     router.refresh();
   }
 
@@ -68,7 +120,7 @@ export function Clientes({ rows }: { rows: CliRow[] }) {
           </tbody></table></div>
         </section>
         <aside className="panel sticky">
-          <div className="ph"><h2>{f.id ? "Editar cliente" : "Novo cliente"}</h2>{f.id && <button className="key sm" onClick={() => setF(novo())}>Novo</button>}</div>
+          <div className="ph"><h2>{f.id ? "Editar cliente" : "Novo cliente"}</h2>{f.id && <button className="key sm" onClick={() => { setDel(null); setF(novo()); }}>Novo</button>}</div>
           <div className="stack">
             <label className="field"><span className="label">Nome completo</span>
               <input className="input" id="cf-nome" value={f.nome} onChange={e => setF({ ...f, nome: e.target.value })} /></label>
@@ -79,6 +131,15 @@ export function Clientes({ rows }: { rows: CliRow[] }) {
             <label className="field"><span className="label">CEP</span>
               <input className="input mono" id="cf-cep" inputMode="numeric" maxLength={9} placeholder="00000-000" value={fmtCep(f.cep)} onChange={e => setF({ ...f, cep: digits(e.target.value).slice(0, 8) })} /></label>
             <button className="key accent" disabled={salvando} onClick={salvar}>{f.id ? "Salvar alterações" : "Cadastrar cliente"}</button>
+            {canDelete && f.id && (del?.id === f.id
+              ? <div className="stack" style={{ gap: 8 }}>
+                  <span>Excluir {f.nome || "este cliente"}? Não dá para desfazer.</span>
+                  <span className="hint">{del.texto}</span>
+                  <div className="row">
+                    <button className="key danger sm" onClick={() => void excluir()}>Excluir cliente</button>
+                    <button className="key sm" onClick={() => setDel(null)}>Cancelar</button>
+                  </div></div>
+              : <button className="key sm" onClick={() => void pedirExclusao(f.id!)}>Excluir cliente</button>)}
           </div>
         </aside>
       </div>

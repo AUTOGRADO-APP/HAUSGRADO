@@ -5,7 +5,7 @@ import {
   brl, normalizePlate, normalizePhone, formatPhone, normalizeCep, formatCep, quoteTotals, feePct, paymentSummary,
   commission, isStale, showOnBoard, usernameToEmail, DEFAULT_CREDIT_FEES, round2, isBlankItem,
 } from "./rules.ts";
-import { canAccess, navFor, homeFor } from "./permissions.ts";
+import { canAccess, canDelete, isFin, isOffice, navFor, homeFor } from "./permissions.ts";
 
 const fees = { fee_debit_pct: 1.39, fee_pix_pct: 0.99, fee_credit_pct: DEFAULT_CREDIT_FEES };
 
@@ -73,8 +73,23 @@ test("permissões por perfil", () => {
   assert.equal(canAccess("admin", "/config"), false);
   assert.equal(canAccess("master", "/config"), true);
   assert.equal(canAccess(null, "/quadro"), false);
-  assert.equal(navFor("atendente").some(i => i.href === "/financeiro"), false);
+  assert.equal(canAccess("atendente", "/financeiro/compras/novo"), true);
+  assert.equal(canAccess("atendente", "/financeiro/despesas"), false);
+  assert.equal(canAccess("atendente", "/financeiro/metas"), false);
+  assert.equal(canAccess("atendente", "/financeiro/calendario"), false);
+  assert.deepEqual(navFor("atendente").find(i => i.href === "/financeiro")?.children?.map(c => c.label), ["Entradas", "Compras", "Fornecedores"]);
   assert.equal(homeFor("atendente"), "/quadro");
+  assert.equal(canAccess("mecanico", "/quadro"), true);
+  assert.equal(canAccess("mecanico", "/produtos"), true);
+  assert.equal(canAccess("mecanico", "/financeiro/entradas"), false);
+  assert.equal(canAccess("mecanico", "/orcamentos/x/guia"), false);
+  assert.equal(canAccess("mecanico", "/clientes"), false);
+  assert.equal(navFor("mecanico").some(i => ["/financeiro", "/orcamentos", "/clientes", "/gestao"].includes(i.href)), false);
+  assert.equal(homeFor("mecanico"), "/quadro");
+  assert.equal(canDelete("master"), true);
+  assert.equal(canDelete("admin"), false);
+  assert.equal(isOffice("mecanico"), false);
+  assert.equal(isFin("atendente"), false);
 });
 
 test("linha de orçamento em branco", () => {

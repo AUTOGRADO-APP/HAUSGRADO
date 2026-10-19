@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server.ts";
+import { createClient, getMe } from "@/lib/supabase/server.ts";
+import { isFin } from "@/lib/permissions.ts";
 import { PURCHASE_SELECT, toPurchase, type PurchaseRaw } from "@/lib/fin-b.ts";
 import { Compras } from "./Compras.tsx";
 
@@ -11,7 +12,7 @@ export default async function ComprasPage() {
   return (
     <main id="view">
       {error && <div className="banner"><span>Erro ao carregar compras: {error.message}</span></div>}
-      <Compras list={list} />
+      <Compras list={list} calendario={isFin((await getMe())?.role)} />
     </main>
   );
 }

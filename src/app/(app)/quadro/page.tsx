@@ -1,5 +1,6 @@
 import { createClient, getMe } from "@/lib/supabase/server.ts";
 import { ymd } from "@/lib/labels.ts";
+import { isFin, isOffice } from "@/lib/permissions.ts";
 import { Board, type BoardCard } from "./Board.tsx";
 import type { ShopFees } from "@/lib/rules.ts";
 
@@ -25,7 +26,7 @@ export default async function QuadroPage({ searchParams }: { searchParams: Promi
   return (
     <>
       {error && <div className="banner"><span>Erro ao carregar o quadro: {error.message}</span></div>}
-      <Board initial={list} filtro={filtro} noMes={noMes ?? 0} shopId={me!.shop_id} canUndoReceipt={me!.role !== "atendente"}
+      <Board initial={list} filtro={filtro} noMes={noMes ?? 0} shopId={me!.shop_id} canUndoReceipt={isFin(me!.role)} canReceive={isOffice(me!.role)}
         fees={{ fee_debit_pct: Number(f?.fee_debit_pct ?? 0), fee_pix_pct: Number(f?.fee_pix_pct ?? 0), fee_credit_pct: (f?.fee_credit_pct ?? []).map(Number) }}
         hasPassword={!!(pw as { active?: boolean } | null)?.active} />
     </>

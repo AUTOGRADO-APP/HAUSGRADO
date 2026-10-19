@@ -9,6 +9,7 @@ import { ABAS, FOTOS, ITENS_CK, ORC_ST, TIPOS, digits, dt, fmtFone, fromLocalInp
 import { addMediaRecord, uploadFile, BUCKET } from "@/lib/media.ts";
 import { msgOS, portalLink, waURL } from "@/lib/msgs.ts";
 import { copyText, errMsg, sfx, toast } from "@/lib/ui.ts";
+import { MSG_RECEBER, canDelete, isFin, isOffice } from "@/lib/permissions.ts";
 import { Plate } from "@/components/Plate.tsx";
 import { PaymentModal } from "@/components/PaymentModal.tsx";
 import { MicButton, juntarDitado } from "@/components/MicButton.tsx";
@@ -52,7 +53,8 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
   const descRef = useRef(desc); descRef.current = desc;
   const descTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lista = useRef<HTMLDivElement>(null);
-  const canDelete = role !== "atendente";
+  const podeExcluir = canDelete(role), fin = isFin(role), office = isOffice(role);
+  const [delInfo, setDelInfo] = useState<string | null>(null);
 
   useEffect(() => setEnt(toLocalInput(os.entered_at)), [os.entered_at]);
   useEffect(() => setSai(toLocalInput(os.exited_at)), [os.exited_at]);
@@ -92,7 +94,10 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
   // ---------- status ----------
   async function setStatus(to: Status) {
     if (to === os.status) return;
-    if (to === "finalizado") { setPaying(true); sfx("tap"); return; }
+    if (to === "finalizado") {
+      if (!office) return toast(MSG_RECEBER, { err: true });
+      setPaying(true); sfx("tap"); return;
+    }
     if (os.status === "finalizado") return toast("O.S. finalizada só volta pelo Desfazer logo após o recebimento.", { err: true });
     const prev = os.status;
     if (!(await upd({ status: to }))) return;
@@ -191,13 +196,22 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
     router.refresh();
   }
 
-  // ---------- excluir O.S. ----------
+  // ---------- excluir O.S. (só master) ----------
+  async function pedirExclusao() {
+    setDelInfo(null);
+    if (os.status === "finalizado") {
+      const { data } = await sb.from("receipts").select("total").eq("service_order_id", os.id);
+      const rec = ((data ?? []) as { total: number }[]).reduce((a, r) => a + Number(r.total), 0);
+      setDelInfo(`Esta O.S. já foi finalizada: a entrada de ${brl(rec)} sai do Financeiro junto com as taxas e a comissão, e as peças cadastradas voltam ao estoque.`);
+    }
+    setPend("os-del");
+  }
   async function excluirOS() {
     const paths = [...photos.map(p => p.storage_path), ...records.map(r => r.storage_path)].filter(Boolean) as string[];
     const { error } = await sb.from("service_orders").delete().eq("id", os.id);
     if (error) return toast(errMsg(error), { err: true });
     if (paths.length) await sb.storage.from(BUCKET).remove(paths);
-    toast("OS excluída");
+    toast("O.S. excluída");
     router.push("/quadro"); router.refresh();
   }
 
@@ -311,7 +325,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
             </div>
           </section>
 
-          <section className="panel">
+          {office && <section className="panel">
             <div className="ph"><h2>Orçamento</h2>
               {quote && <span className={`chip ${quote.status === "aprovado" ? "ok" : quote.status === "recusado" ? "bad" : ""}`}>{ORC_ST[quote.status]}</span>}</div>
             {quote ? (
@@ -320,7 +334,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
                 <Link className="key" style={{ marginTop: 10, width: "100%" }} href={`/orcamentos/${quote.id}`}>Abrir orçamento</Link>
               </>
             ) : <a className="key accent" style={{ width: "100%" }} href={`/orcamentos/novo?os=${os.id}`}>Criar orçamento</a>}
-          </section>
+          </section>}
 
           <section className="panel">
             <div className="ph"><h2>Fotos de entrada</h2></div>
@@ -347,15 +361,17 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
             </div>
           </section>
 
-          <section className="panel flat">
+          {podeExcluir && <section className="panel flat">
             {pend === "os-del"
-              ? <div className="row"><span>Excluir esta OS e todas as mídias?</span>
-                  <button type="button" className="key danger sm" onClick={() => void excluirOS()}>Excluir</button>
-                  <button type="button" className="key sm" onClick={() => setPend(null)}>Cancelar</button></div>
-              : !canDelete ? <span className="hint">Somente administradores podem excluir O.S.</span>
-              : os.status === "finalizado" ? <span className="hint">O.S. finalizada não pode ser excluída: o recebimento dela está no Financeiro.</span>
-              : <button type="button" className="key sm" onClick={() => setPend("os-del")}>Excluir OS</button>}
-          </section>
+              ? <div className="stack" style={{ gap: 8 }}>
+                  <span>Excluir esta O.S. com fotos, registros, histórico{quote ? ` e o orçamento nº ${quote.number}` : ""}? Não dá para desfazer.</span>
+                  {delInfo && <span className="hint" style={{ color: "var(--danger)" }}>{delInfo}</span>}
+                  <div className="row">
+                    <button type="button" className="key danger sm" onClick={() => void excluirOS()}>Excluir O.S.</button>
+                    <button type="button" className="key sm" onClick={() => setPend(null)}>Cancelar</button>
+                  </div></div>
+              : <button type="button" className="key sm" onClick={() => void pedirExclusao()}>Excluir O.S.</button>}
+          </section>}
         </aside>
       </div>
 
@@ -365,7 +381,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
           onDone={(prev) => {
             setPaying(false);
             router.refresh();
-            toast(`${os.plate} → Finalizado · pagamento registrado`, canDelete ? {
+            toast(`${os.plate} → Finalizado · pagamento registrado`, fin ? {
               undo: async () => {
                 const { error } = await sb.rpc("undo_receipt", { p_os: os.id, p_previous_status: prev });
                 if (error) toast(errMsg(error), { err: true }); router.refresh();

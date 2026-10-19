@@ -2,7 +2,7 @@
 // A palavra final é sempre do banco (supabase/migrations/*_logic.sql). Se mudar aqui, mude lá também.
 
 export type Status = "orcamento" | "aprovado" | "pecas" | "servico" | "entrega" | "finalizado";
-export type Role = "master" | "admin" | "atendente";
+export type Role = "master" | "admin" | "atendente" | "mecanico";
 export type PayMethod = "dinheiro" | "credito" | "debito" | "pix";
 
 export const STATUSES: { id: Status; label: string }[] = [

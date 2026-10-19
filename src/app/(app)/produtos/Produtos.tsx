@@ -72,7 +72,8 @@ function Contagem({ p, conferido, onSaved }: { p: Produto; conferido: boolean; o
   );
 }
 
-export function Produtos({ rows, filtroInicial = "", hasPassword }: { rows: Produto[]; filtroInicial?: string; hasPassword: boolean }) {
+/** custos = false para o mecânico: some custo e margem, e salvar não mexe no custo. */
+export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { rows: Produto[]; filtroInicial?: string; hasPassword: boolean; custos: boolean }) {
   const router = useRouter();
   const fimBal = useBalanco(), restBal = useRestante(fimBal), bal = fimBal != null;
   const [modalBal, setModalBal] = useState(false);
@@ -172,7 +173,7 @@ export function Produtos({ rows, filtroInicial = "", hasPassword }: { rows: Prod
     else if (c === "aditivos") keep.additive_type = F.tipoAd || null;
     const data = {
       name: F.nome.trim(), manufacturer: F.fabricante.trim() || null, sku: sku || null, ean: digits(F.ean) || null, ncm: digits(F.ncm) || null,
-      cost: parseNum(F.custo) || 0, price: preco, category: c, ...keep, min_stock: minimo || 0,
+      ...(custos ? { cost: parseNum(F.custo) || 0 } : {}), price: preco, category: c, ...keep, min_stock: minimo || 0,
     };
     setSalvando(true);
     const sb = createClient();
@@ -226,7 +227,7 @@ export function Produtos({ rows, filtroInicial = "", hasPassword }: { rows: Prod
             <button className={`key sm ${cat === "baixo" ? "on" : ""}`} id="pr-f-baixo" onClick={() => setCat(cat === "baixo" ? "" : "baixo")}>Estoque baixo <span className={`count ${nBaixo ? "bad" : ""}`}>{nBaixo}</span></button>
             {CATS.map(([k, l]) => <button key={k} className={`key sm ${cat === k ? "on" : ""}`} onClick={() => setCat(k)}>{l} <span className="count">{cnt(k)}</span></button>)}
           </div>
-          <div className="tbl-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th>SKU / EAN / NCM</th><th className="num">Estoque</th><th className="num">Custo</th><th className="num">Preço</th><th className="num">Margem</th></tr></thead><tbody>
+          <div className="tbl-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th>SKU / EAN / NCM</th><th className="num">Estoque</th>{custos && <th className="num">Custo</th>}<th className="num">Preço</th>{custos && <th className="num">Margem</th>}</tr></thead><tbody>
             {list.map(x => {
               const m = margem(x.cost, x.price), r = prodResumo(x), es = estoqueSit(x);
               return (
@@ -237,13 +238,13 @@ export function Produtos({ rows, filtroInicial = "", hasPassword }: { rows: Prod
                   <td className="num est-td" onClick={bal ? e => e.stopPropagation() : undefined}>{bal ? <Contagem p={x} conferido={conferidos.has(x.id)} onSaved={id => setConferidos(c => new Set(c).add(id))} /> : <><b className={`mono ${es.cls ? "est-neg" : ""}`}>{qtdBR(x.stock_qty)}</b>
                     {es.cls ? <div><span className={`chip ${es.cls} est-chip`}>{es.k === "zero" ? "Sem estoque" : `Baixo · mín. ${qtdBR(x.min_stock)}`}</span></div>
                       : x.min_stock > 0 ? <div className="hint mono">mín. {qtdBR(x.min_stock)}</div> : null}</>}</td>
-                  <td className="num">{brl(x.cost)}</td>
+                  {custos && <td className="num">{brl(x.cost)}</td>}
                   <td className="num"><b>{brl(x.price)}</b></td>
-                  <td className="num">{m == null ? "—" : <span className={`dl ${m >= 30 ? "up" : m < 10 ? "down" : ""}`}>{m}%</span>}</td>
+                  {custos && <td className="num">{m == null ? "—" : <span className={`dl ${m >= 30 ? "up" : m < 10 ? "down" : ""}`}>{m}%</span>}</td>}
                 </tr>
               );
             })}
-            {!list.length && <tr><td colSpan={7}><div className="empty">{rows.length ? (cat === "baixo" ? "Nenhum produto com estoque baixo" : "Nenhum produto encontrado com esse filtro") : "Nenhum produto cadastrado. Use o formulário ao lado."}</div></td></tr>}
+            {!list.length && <tr><td colSpan={custos ? 7 : 5}><div className="empty">{rows.length ? (cat === "baixo" ? "Nenhum produto com estoque baixo" : "Nenhum produto encontrado com esse filtro") : "Nenhum produto cadastrado. Use o formulário ao lado."}</div></td></tr>}
           </tbody></table></div>
         </section>
         <aside className="stack sticky"><section className="panel">
@@ -269,12 +270,12 @@ export function Produtos({ rows, filtroInicial = "", hasPassword }: { rows: Prod
             <label className="field"><span className="label">NCM</span>
               <input className={`input mono ${ncmBad ? "bad" : ""}`} id="pr-ncm" inputMode="numeric" maxLength={10} placeholder="0000.00.00" value={F.ncm} onChange={e => set({ ncm: fmtNcm(e.target.value) })} />
               <span className="hint" style={ncmBad ? { color: "var(--danger)" } : undefined}>{ncmBad ? "O NCM tem 8 dígitos" : "Classificação fiscal da mercadoria, 8 dígitos (vai na nota fiscal)"}</span></label>
-            <div className="grid3">
-              <label className="field"><span className="label">Custo (R$)</span>
-                <input className="input" id="pr-custo" inputMode="decimal" value={F.custo} onChange={e => set({ custo: e.target.value })} /></label>
+            <div className={custos ? "grid3" : "grid2"}>
+              {custos && <label className="field"><span className="label">Custo (R$)</span>
+                <input className="input" id="pr-custo" inputMode="decimal" value={F.custo} onChange={e => set({ custo: e.target.value })} /></label>}
               <label className="field"><span className="label">Preço (R$) *</span>
                 <input className="input" id="pr-preco" inputMode="decimal" value={F.preco} onChange={e => set({ preco: e.target.value })} /></label>
-              <div className="field"><span className="label">Margem</span><b className="mono margin-box" id="pr-mg">{mg == null ? "—" : mg + "%"}</b></div>
+              {custos && <div className="field"><span className="label">Margem</span><b className="mono margin-box" id="pr-mg">{mg == null ? "—" : mg + "%"}</b></div>}
             </div>
             <div className="grid2">
               <label className="field"><span className="label">Estoque mínimo</span>
