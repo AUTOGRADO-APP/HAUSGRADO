@@ -10,7 +10,7 @@ import { createUser, setActive, setPassword, setRole, type Res } from "./actions
 
 export interface CfgShop {
   id: string; name: string; portal_base_url: string | null; plate_api_provider: string | null;
-  commission_pct: number; fee_debit_pct: number; fee_pix_pct: number; fee_credit_pct: number[];
+  commission_pct: number; min_part_margin_pct: number; fee_debit_pct: number; fee_pix_pct: number; fee_credit_pct: number[];
 }
 export interface CfgUser { id: string; full_name: string; username: string; role: Role; active: boolean }
 export interface CfgTech { id: string; name: string; active: boolean }
@@ -28,13 +28,13 @@ export function ConfigView({ meId, shop, users, techs, pw, canManageUsers }: {
   // ---------- oficina / placa / comissão / taxas (salvam ao sair do campo) ----------
   const [of, setOf] = useState({
     name: shop.name ?? "", portal_base_url: shop.portal_base_url ?? "", plate_api_provider: shop.plate_api_provider ?? "",
-    commission_pct: numTxt(shop.commission_pct), fee_debit_pct: numTxt(shop.fee_debit_pct), fee_pix_pct: numTxt(shop.fee_pix_pct),
+    commission_pct: numTxt(shop.commission_pct), min_part_margin_pct: numTxt(shop.min_part_margin_pct), fee_debit_pct: numTxt(shop.fee_debit_pct), fee_pix_pct: numTxt(shop.fee_pix_pct),
   });
   const [cred, setCred] = useState(shop.fee_credit_pct.map(numTxt));
   useEffect(() => {
     setOf({
       name: shop.name ?? "", portal_base_url: shop.portal_base_url ?? "", plate_api_provider: shop.plate_api_provider ?? "",
-      commission_pct: numTxt(shop.commission_pct), fee_debit_pct: numTxt(shop.fee_debit_pct), fee_pix_pct: numTxt(shop.fee_pix_pct),
+      commission_pct: numTxt(shop.commission_pct), min_part_margin_pct: numTxt(shop.min_part_margin_pct), fee_debit_pct: numTxt(shop.fee_debit_pct), fee_pix_pct: numTxt(shop.fee_pix_pct),
     });
     setCred(shop.fee_credit_pct.map(numTxt));
   }, [shop]);
@@ -51,9 +51,10 @@ export function ConfigView({ meId, shop, users, techs, pw, canManageUsers }: {
     if (v === (shop[k] ?? "")) return;
     void saveShop({ [k]: v || null });
   }
-  function savePct(k: "commission_pct" | "fee_debit_pct" | "fee_pix_pct") {
+  function savePct(k: "commission_pct" | "min_part_margin_pct" | "fee_debit_pct" | "fee_pix_pct") {
     const n = parseNum(of[k]);
-    if (!(n >= 0 && n <= 100)) { toast("Informe um percentual entre 0 e 100.", { err: true }); setOf(o => ({ ...o, [k]: numTxt(shop[k]) })); return; }
+    const max = k === "min_part_margin_pct" ? 99.99 : 100;
+    if (!(n >= 0 && n <= max)) { toast(k === "min_part_margin_pct" ? "Informe uma margem entre 0 e 99,99%." : "Informe um percentual entre 0 e 100.", { err: true }); setOf(o => ({ ...o, [k]: numTxt(shop[k]) })); return; }
     if (n === shop[k]) return;
     void saveShop({ [k]: n });
   }
@@ -201,6 +202,13 @@ export function ConfigView({ meId, shop, users, techs, pw, canManageUsers }: {
               onChange={e => setCred(c => c.map((x, j) => (j === i ? e.target.value : x)))} onBlur={() => saveCred(i)} /></label>
         ))}</div>
         <span className="hint">Dinheiro não tem taxa. Mudar a taxa vale só para os próximos recebimentos.</span>
+      </div></section>
+
+      <section className="panel"><div className="ph"><h2>Margem mínima de peças</h2></div><div className="stack">
+        <p className="hint" style={{ margin: 0 }}>Menor margem aceita no preço de uma peça do orçamento: (preço − custo) ÷ preço, a mesma da página Produtos. Abaixo dela o orçamento não salva o preço, para qualquer perfil. Mão de obra e peça a R$ 0 (garantia) ficam de fora. Use 0 para não ter mínimo.</p>
+        <label className="field" style={{ maxWidth: 220 }}><span className="label">Margem mínima (%)</span>
+          <input className="input" inputMode="decimal" value={of.min_part_margin_pct} onChange={e => setOf({ ...of, min_part_margin_pct: e.target.value })} onBlur={() => savePct("min_part_margin_pct")} /></label>
+        <span className="hint">Só o master altera. Vale para os próximos preços digitados; itens já gravados não mudam.</span>
       </div></section>
 
       <section className="panel"><div className="ph"><h2>Equipe e comissão</h2></div><div className="stack">

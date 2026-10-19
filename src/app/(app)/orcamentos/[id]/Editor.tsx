@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client.ts";
-import { brl, quoteTotals } from "@/lib/rules.ts";
-import { ORC_ST, numBR, parseNum } from "@/lib/labels.ts";
+import { brl, marginOf, minPartPrice, partPriceOk, priceFromMargin, quoteTotals } from "@/lib/rules.ts";
+import { ORC_ST, numBR, parseNum, pct } from "@/lib/labels.ts";
 import { msgOrc, portalLink, waURL } from "@/lib/msgs.ts";
 import { copyText, errMsg, sfx, toast } from "@/lib/ui.ts";
 import { ProductPicker, type PickProduct } from "@/components/ProductPicker.tsx";
@@ -18,10 +18,15 @@ import type { QItem, QQuote, QuoteBundle } from "../data.ts";
 export interface OSOpt { id: string; number: number; plate: string; model: string | null; status: string; customer_id: string; customer_name: string }
 export interface ServOpt { id: string; name: string; description: string | null; price: number }
 
-type LItem = QItem & { qtyTxt: string; priceTxt: string };
-type Patch = Partial<Pick<QItem, "description" | "qty" | "unit_price" | "product_id" | "service_id" | "sku" | "details" | "kind">>;
-const toL = (i: QItem): LItem => ({ ...i, qtyTxt: String(i.qty).replace(".", ","), priceTxt: numBR(i.unit_price) || "0" });
-const COLS = "id, kind, description, details, qty, unit_price, product_id, service_id, sku, position";
+// byMargin: a pessoa digitou a margem por último → se o custo mudar, o preço acompanha (senão, a margem é que muda)
+type LItem = QItem & { qtyTxt: string; priceTxt: string; costTxt: string; marginTxt: string; byMargin: boolean };
+type Patch = Partial<Pick<QItem, "description" | "qty" | "unit_price" | "unit_cost" | "product_id" | "service_id" | "sku" | "details" | "kind">>;
+const mTxt = (cost: number, price: number) => { const m = cost > 0 ? marginOf(cost, price) : null; return m == null ? "" : String(m).replace(".", ","); };
+const toL = (i: QItem): LItem => ({
+  ...i, qtyTxt: String(i.qty).replace(".", ","), priceTxt: numBR(i.unit_price) || "0", costTxt: numBR(i.unit_cost) || "0",
+  marginTxt: mTxt(i.unit_cost, i.unit_price), byMargin: false,
+});
+const COLS = "id, kind, description, details, qty, unit_price, unit_cost, product_id, service_id, sku, position";
 
 export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDelete }: {
   bundle: QuoteBundle; osList: OSOpt[]; produtos: PickProduct[]; servicos: ServOpt[]; hasPassword: boolean; canDelete: boolean;
@@ -29,6 +34,9 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
   const sb = useMemo(() => createClient(), []);
   const router = useRouter();
   const { customer: c, os: o, shop } = bundle;
+  const minPct = shop.min_part_margin_pct;
+  // custo de peça cadastrada vem do cadastro e não se digita (quando o produto tem custo)
+  const custoCad = useMemo(() => new Map(produtos.filter(p => Number(p.cost) > 0).map(p => [p.id, Number(p.cost)])), [produtos]);
   const [q, setQ] = useState<QQuote>(bundle.quote);
   const [items, setItems] = useState<LItem[]>(() => bundle.items.map(toL));
   const [validade, setValidade] = useState(String(bundle.quote.validity_days));
@@ -38,6 +46,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
   const pend = useRef(new Map<string, { patch: Patch; t: ReturnType<typeof setTimeout> }>());
   const valT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputs = useRef(new Map<string, HTMLInputElement>());
+  const invalidRef = useRef(false);
   // aprovado = travado (volta para Rascunho para editar); O.S. finalizada = travado de vez (o banco garante)
   const osFin = o?.status === "finalizado";
   const locked = q.status === "aprovado" || osFin;
@@ -49,7 +58,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
   // quando o servidor manda dados novos (refresh/tempo real), sincroniza o que não está sendo editado
   useEffect(() => {
     setQ(bundle.quote);
-    if (!pend.current.size) setItems(bundle.items.map(toL));
+    if (!pend.current.size && !invalidRef.current) setItems(bundle.items.map(toL));
   }, [bundle]);
   useEffect(() => {
     const ch = sb.channel("quote-" + bundle.quote.id)
@@ -86,17 +95,29 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
   flushRef.current = flush;
   useEffect(() => () => { void flushRef.current(); }, []);
 
-  function edit(id: string, f: "description" | "qty" | "unit_price", v: string) {
+  function edit(id: string, f: "description" | "qty" | "unit_price" | "unit_cost" | "margin", v: string) {
     if (locked) return;
-    setItems(its => its.map(i => {
-      if (i.id !== id) return i;
-      if (f === "description") return { ...i, description: v };
-      if (f === "qty") { const n = parseNum(v); return { ...i, qtyTxt: v, qty: n > 0 ? n : i.qty }; }
-      return { ...i, priceTxt: v, unit_price: Math.max(0, parseNum(v)) };
-    }));
+    const cur = items.find(i => i.id === id);
+    if (!cur) return;
+    let r: LItem;
+    if (f === "description") r = { ...cur, description: v };
+    else if (f === "qty") { const n = parseNum(v); r = { ...cur, qtyTxt: v, qty: n > 0 ? n : cur.qty }; }
+    else if (f === "unit_price") { const p = Math.max(0, parseNum(v)); r = { ...cur, priceTxt: v, unit_price: p, marginTxt: mTxt(cur.unit_cost, p), byMargin: false }; }
+    else if (f === "margin") {
+      // margem → preço (preço = custo ÷ (1 − margem), para cima no centavo)
+      const p = v.trim() ? priceFromMargin(cur.unit_cost, parseNum(v)) : null;
+      r = p == null ? { ...cur, marginTxt: v } : { ...cur, marginTxt: v, unit_price: p, priceTxt: numBR(p) || "0", byMargin: true };
+    } else {
+      const c2 = Math.max(0, parseNum(v));
+      const p = cur.byMargin && cur.marginTxt.trim() ? priceFromMargin(c2, parseNum(cur.marginTxt)) : null;
+      r = p == null ? { ...cur, costTxt: v, unit_cost: c2, marginTxt: mTxt(c2, cur.unit_price) }
+        : { ...cur, costTxt: v, unit_cost: c2, unit_price: p, priceTxt: numBR(p) || "0" };
+    }
+    setItems(its => its.map(i => (i.id === id ? r : i)));
     if (f === "description") queue(id, { description: v });
     else if (f === "qty") { const n = parseNum(v); if (n > 0) queue(id, { qty: n }); }
-    else queue(id, { unit_price: Math.max(0, parseNum(v)) });
+    // preço/custo/margem só gravam se a peça respeita a margem mínima (o banco confere de novo)
+    else if (partPriceOk(r, minPct)) queue(id, { unit_cost: r.unit_cost, unit_price: r.unit_price });
   }
 
   const nextPos = () => items.reduce((m, i) => Math.max(m, i.position), -1) + 1;
@@ -104,7 +125,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
     if (locked && travado()) return null;
     const { data, error } = await sb.from("quote_items").insert({ quote_id: q.id, qty: 1, position: nextPos(), ...row }).select(COLS).single();
     if (error || !data) { toast(errMsg(error), { err: true }); return null; }
-    const it = toL({ ...(data as QItem), qty: Number(data.qty), unit_price: Number(data.unit_price) });
+    const it = toL({ ...(data as QItem), qty: Number(data.qty), unit_price: Number(data.unit_price), unit_cost: Number(data.unit_cost) || 0 });
     setItems(its => [...its, it]);
     if (focus) setFocusId(it.id);
     return it;
@@ -132,14 +153,19 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
     if (locked && travado()) return;
     const desc = x.name + (x.manufacturer ? " " + x.manufacturer : "");
     const ex = items.find(i => i.product_id === x.id);
+    let ajustado = false;
     if (ex) await replace(ex.id, { qty: ex.qty + 1 });
     else {
       const vz = items.find(i => i.kind === "peca" && !i.description && !i.unit_price);
-      const patch: Patch = { description: desc, qty: 1, unit_price: Number(x.price) || 0, product_id: x.id, sku: x.sku };
+      const custo = Number(x.cost) || 0, min = minPartPrice(custo, minPct);
+      let preco = Number(x.price) || 0;
+      if (preco > 0 && preco < min) { preco = min; ajustado = true; }
+      const patch: Patch = { description: desc, qty: 1, unit_cost: custo, unit_price: preco, product_id: x.id, sku: x.sku };
       if (vz) await replace(vz.id, patch); else await insert({ kind: "peca", ...patch });
     }
     const disp = (x.stock_qty ?? 0) - (x.reserved ?? 0), nova = (ex?.qty ?? 0) + 1;
-    if (x.stock_qty != null && nova > disp) toast(`${x.name} adicionada · estoque disponível: ${String(Math.max(0, disp)).replace(".", ",")}. Confira antes de prometer a peça.`);
+    if (ajustado) toast(`${x.name}: o preço do cadastro fica abaixo da margem mínima de ${pct(minPct)}. Entrou por ${brl(minPartPrice(Number(x.cost) || 0, minPct))}.`);
+    else if (x.stock_qty != null && nova > disp) toast(`${x.name} adicionada · estoque disponível: ${String(Math.max(0, disp)).replace(".", ",")}. Confira antes de prometer a peça.`);
     else toast(`${x.name} adicionada ao orçamento`, { sound: "ok" });
   }
   async function addServico(x: ServOpt) {
@@ -183,6 +209,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
   async function setStatus(st: QQuote["status"]) {
     if (st === q.status) return;
     if (osFin && travado()) return;
+    if (barrado()) return;
     const decided = st === "aprovado" || st === "recusado";
     await flush();
     const { error } = await sb.from("quotes").update({ status: st, decided_at: decided ? new Date().toISOString() : null, decided_by: decided ? "oficina" : null }).eq("id", q.id);
@@ -213,8 +240,18 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
     toast(`Orçamento nº ${q.number} excluído`);
     router.push("/orcamentos"); router.refresh();
   }
-  async function go(path: string) { await flush(); router.push(path); }
+  // peça abaixo da margem mínima: o valor não foi gravado; nada sai do editor até corrigir
+  const invalid = locked ? [] : items.filter(i => !partPriceOk(i, minPct));
+  invalidRef.current = invalid.length > 0;
+  const barrado = () => {
+    const i = invalid[0];
+    if (!i) return false;
+    toast(`${i.description || "Peça sem descrição"}: preço abaixo da margem mínima de ${pct(minPct)}. Mínimo: ${brl(minPartPrice(i.unit_cost, minPct))}.`, { err: true });
+    return true;
+  };
+  async function go(path: string) { if (barrado()) return; await flush(); router.push(path); }
   async function guia() {
+    if (barrado()) return;
     if (!q.service_order_id || !o) return toast("Selecione o veículo (O.S.) deste orçamento antes de gerar a guia", { err: true });
     await go(`/orcamentos/${q.id}/guia`);
   }
@@ -241,24 +278,46 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
           ? "A O.S. deste orçamento foi finalizada: ele fica só para consulta."
           : "Orçamento aprovado: os itens e o desconto ficam travados. Para alterar, volte a situação para Rascunho; o cliente precisa aprovar de novo."}</p>}
         <div className="tbl-wrap"><table className="orc-itens">
-          <thead><tr><th style={{ width: 1 }}>Tipo</th><th>Descrição</th><th className="num" style={{ width: 64 }}>Qtd</th><th className="num" style={{ width: 96 }}>Valor un.</th><th className="num" style={{ width: 1 }}>Subtotal</th><th style={{ width: 1 }}></th></tr></thead>
+          <thead><tr>
+            <th style={{ width: 1 }}>Tipo</th><th>Descrição</th><th className="num" style={{ width: 58 }}>Qtd</th>
+            <th className="num" style={{ width: 92 }}>Custo un.</th><th className="num" style={{ width: 70 }}>Margem</th>
+            <th className="num" style={{ width: 96 }}>Preço</th><th className="num" style={{ width: 1 }}>Subtotal</th><th style={{ width: 1 }}></th>
+          </tr></thead>
           <tbody>
-            {items.map(i => (
-              <tr key={i.id}>
-                <td><span className="chip">{i.kind === "peca" ? "Peça" : "Mão de obra"}</span></td>
+            {items.map(i => {
+              const peca = i.kind === "peca";
+              const bad = !locked && !partPriceOk(i, minPct);
+              // peça cadastrada: o custo vem do cadastro (linhas antigas, gravadas sem custo, continuam editáveis)
+              const cad = !!i.product_id && custoCad.has(i.product_id) && i.unit_cost > 0;
+              return (
+              <tr key={i.id} className={`${i.kind}${bad ? " bad" : ""}`}>
+                <td><span className="chip">{peca ? "Peça" : "Mão de obra"}</span></td>
                 <td>
                   <input className="it-in" ref={el => { if (el) inputs.current.set(i.id, el); else inputs.current.delete(i.id); }}
                     aria-label="Descrição" readOnly={locked} value={i.description} placeholder="Descrição" onChange={e => edit(i.id, "description", e.target.value)} />
                   {i.details && <div className="hint" style={{ padding: "2px 8px 0" }}>{i.details}</div>}
+                  {bad && <div className="it-err" role="alert">Abaixo da margem mínima de {pct(minPct)}. Preço mínimo: <b className="mono">{brl(minPartPrice(i.unit_cost, minPct))}</b></div>}
                 </td>
-                <td><input className="it-in" aria-label="Quantidade" readOnly={locked} inputMode="decimal" style={{ textAlign: "right" }} value={i.qtyTxt} onChange={e => edit(i.id, "qty", e.target.value)} /></td>
-                <td><input className="it-in" aria-label="Valor unitário" readOnly={locked} inputMode="decimal" style={{ textAlign: "right" }} value={i.priceTxt} onChange={e => edit(i.id, "unit_price", e.target.value)} /></td>
-                <td className="num">{brl(i.qty * i.unit_price)}</td>
+                <td className="it-v"><input className="it-in" aria-label="Quantidade" readOnly={locked} inputMode="decimal" style={{ textAlign: "right" }} value={i.qtyTxt} onChange={e => edit(i.id, "qty", e.target.value)} /></td>
+                {peca ? <>
+                  <td className="it-v"><input className="it-in" aria-label="Custo unitário" readOnly={locked || cad} inputMode="decimal" style={{ textAlign: "right" }}
+                    title={cad ? "Custo do cadastro do produto" : undefined} value={i.costTxt} onChange={e => edit(i.id, "unit_cost", e.target.value)} /></td>
+                  <td className="it-v"><input className={`it-in${bad ? " bad" : ""}`} aria-label="Margem (%)" readOnly={locked || !(i.unit_cost > 0)} inputMode="decimal" style={{ textAlign: "right" }}
+                    placeholder="—" title={i.unit_cost > 0 ? "Margem sobre o preço (%)" : "Informe o custo para calcular pela margem"}
+                    value={i.unit_cost > 0 ? i.marginTxt : ""} onChange={e => edit(i.id, "margin", e.target.value)} /></td>
+                </> : <>
+                  <td className="it-v num na"><span className="muted">—</span></td>
+                  <td className="it-v num na"><span className="muted">—</span></td>
+                </>}
+                <td className="it-v"><input className={`it-in${bad ? " bad" : ""}`} aria-label="Preço unitário" aria-invalid={bad || undefined} readOnly={locked} inputMode="decimal" style={{ textAlign: "right" }} value={i.priceTxt} onChange={e => edit(i.id, "unit_price", e.target.value)} /></td>
+                <td className="it-v it-sub num">{brl(i.qty * i.unit_price)}</td>
                 <td>{!locked && <button className="del" onClick={() => void del(i.id)} aria-label="Remover item">×</button>}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table></div>
+        <p className="hint" style={{ margin: "8px 0 0" }}>{minPct > 0 ? `Margem mínima para peças: ${pct(minPct)} sobre o preço. ` : ""}Custo e margem são só da oficina: não aparecem no PDF, no WhatsApp nem no link do cliente.</p>
         {!locked && <div className="row" style={{ marginTop: 12 }}>
           <button className="key" onClick={() => void insert({ kind: "peca", description: "", unit_price: 0 }, true)}>+ Peça</button>
           <button className="key" onClick={() => void insert({ kind: "mao", description: "Mão de obra", unit_price: 0 }, true)}>+ Mão de obra</button>
@@ -291,8 +350,8 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
           <div className="stack" style={{ marginTop: 14, gap: 8 }}>
             <div className="muted">{q.plate ? `Placa ${q.plate} · ` : ""}{c?.name || "Sem cliente"}</div>
             <a className="key wa" {...(wa ? { href: wa, target: "_blank", rel: "noopener" } : { "aria-disabled": true })}
-              onClick={e => { if (!wa) { e.preventDefault(); return; } void enviado(); }}>Enviar orçamento no WhatsApp</a>
-            <button className="key" onClick={() => void copyText(msg)}>Copiar texto do orçamento</button>
+              onClick={e => { if (!wa || barrado()) { e.preventDefault(); return; } void enviado(); }}>Enviar orçamento no WhatsApp</a>
+            <button className="key" onClick={() => { if (!barrado()) void copyText(msg); }}>Copiar texto do orçamento</button>
             <button className="key" onClick={() => void go(`/orcamentos/${q.id}/pdf`)}>Gerar PDF do orçamento</button>
             <button className="key" onClick={() => void guia()}>Gerar guia de serviço</button>
           </div>
@@ -305,7 +364,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
             ))}
           </div>
           <p className="hint" style={{ margin: "10px 0 0" }}>Ao aprovar, o carro passa automaticamente de Orçamento para Aprovado no quadro. O cliente também pode aprovar pelo link.</p>
-          {o && <Link className="key" style={{ marginTop: 10, width: "100%" }} href={`/os/${o.id}`} onClick={() => void flush()}>Ir para a OS {o.number}</Link>}
+          {o && <Link className="key" style={{ marginTop: 10, width: "100%" }} href={`/os/${o.id}`} onClick={e => { if (barrado()) e.preventDefault(); else void flush(); }}>Ir para a OS {o.number}</Link>}
         </section>
         {canDelete && <section className="panel flat">
           {osFin ? <span className="hint">A O.S. {o?.number} já foi finalizada: para apagar este orçamento, exclua a O.S.</span>

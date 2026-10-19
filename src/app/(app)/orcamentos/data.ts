@@ -3,7 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server.ts";
 
 export interface QItem {
-  id: string; kind: "peca" | "mao"; description: string; details: string | null; qty: number; unit_price: number;
+  id: string; kind: "peca" | "mao"; description: string; details: string | null; qty: number; unit_price: number; unit_cost: number;
   product_id: string | null; service_id: string | null; sku: string | null; position: number;
 }
 export interface QQuote {
@@ -19,7 +19,7 @@ export interface QOS {
 }
 export interface QuoteBundle {
   quote: QQuote; items: QItem[]; customer: QCustomer | null; os: QOS | null;
-  shop: { name: string; portal_base_url: string | null };
+  shop: { name: string; portal_base_url: string | null; min_part_margin_pct: number };
 }
 
 export async function loadQuote(id: string): Promise<QuoteBundle | null> {
@@ -28,12 +28,12 @@ export async function loadQuote(id: string): Promise<QuoteBundle | null> {
   if (!q) return null;
   const quote = { ...q, discount: Number(q.discount) || 0 } as QQuote;
   const [{ data: items }, { data: cust }, { data: os }, { data: shop }] = await Promise.all([
-    sb.from("quote_items").select("id, kind, description, details, qty, unit_price, product_id, service_id, sku, position").eq("quote_id", id).order("position").order("created_at"),
+    sb.from("quote_items").select("id, kind, description, details, qty, unit_price, unit_cost, product_id, service_id, sku, position").eq("quote_id", id).order("position").order("created_at"),
     quote.customer_id ? sb.from("customers").select("id, name, phone, document, zip_code").eq("id", quote.customer_id).maybeSingle() : Promise.resolve({ data: null }),
     quote.service_order_id
       ? sb.from("service_orders").select("id, number, plate, make, model, year, color, km, fuel_level, entry_type, status, entered_at, exited_at, customer_complaint, portal_token, technicians(name)").eq("id", quote.service_order_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    sb.from("shops").select("name, portal_base_url").single(),
+    sb.from("shops").select("name, portal_base_url, min_part_margin_pct").single(),
   ]);
   let o: QOS | null = null;
   if (os) {
@@ -45,9 +45,10 @@ export async function loadQuote(id: string): Promise<QuoteBundle | null> {
   }
   return {
     quote,
-    items: ((items ?? []) as QItem[]).map(i => ({ ...i, qty: Number(i.qty) || 0, unit_price: Number(i.unit_price) || 0 })),
+    items: ((items ?? []) as QItem[]).map(i => ({ ...i, qty: Number(i.qty) || 0, unit_price: Number(i.unit_price) || 0, unit_cost: Number(i.unit_cost) || 0 })),
     customer: (cust as QCustomer | null) ?? null,
     os: o,
-    shop: { name: (shop as { name?: string } | null)?.name || "Autogrado", portal_base_url: (shop as { portal_base_url?: string | null } | null)?.portal_base_url ?? null },
+    shop: { name: (shop as { name?: string } | null)?.name || "Autogrado", portal_base_url: (shop as { portal_base_url?: string | null } | null)?.portal_base_url ?? null,
+      min_part_margin_pct: Number((shop as { min_part_margin_pct?: number | string } | null)?.min_part_margin_pct) || 0 },
   };
 }
