@@ -55,6 +55,21 @@ export function quoteTotals(items: QuoteItem[], discount = 0) {
   return { pecas, mao, subtotal, discount: round2(discount), total: round2(subtotal - discount) };
 }
 
+/** Margem mínima de peças (seção 7.9). Margem = (preço − custo) ÷ preço, a mesma da página Produtos.
+ *  Mesma conta de public.min_part_price() no banco: custo ÷ (1 − mínimo), arredondado PARA CIMA no centavo. */
+export const minPartPrice = (cost: number, minPct: number): number => (minPct > 0 ? priceFromMargin(cost, minPct) ?? 0 : 0);
+/** Preço a partir do custo e da margem (%), arredondado para cima no centavo. null = margem ≥ 100%. */
+export function priceFromMargin(cost: number, marginPct: number): number | null {
+  if (!(marginPct < 100) || !Number.isFinite(marginPct)) return null;
+  const cents = Math.round((Number(cost) || 0) * 100), bp = Math.round(marginPct * 100); // inteiros: sem erro de ponto flutuante
+  return Math.max(0, Math.ceil((cents * 10000) / (10000 - bp) - 1e-9)) / 100;
+}
+/** Margem (%) com uma casa: (preço − custo) ÷ preço. null quando não há preço. */
+export const marginOf = (cost: number, price: number) => (price > 0 ? Math.round(((price - cost) / price) * 1000) / 10 : null);
+/** A peça respeita a margem mínima? Mão de obra e peça a R$ 0 (garantia) não entram na regra. */
+export const partPriceOk = (i: { kind: "peca" | "mao"; unit_price: number; unit_cost: number }, minPct: number) =>
+  i.kind !== "peca" || !(i.unit_price > 0) || i.unit_price >= minPartPrice(i.unit_cost, minPct);
+
 /** Linha de orçamento em branco (sem descrição e sem valor): não aparece para o cliente nem nos documentos. */
 export const isBlankItem = (i: { description?: string | null; unit_price: number }) => !(i.description ?? "").trim() && !Number(i.unit_price);
 

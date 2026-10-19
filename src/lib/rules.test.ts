@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   brl, normalizePlate, normalizePhone, formatPhone, normalizeCep, formatCep, quoteTotals, feePct, paymentSummary,
   commission, isStale, showOnBoard, usernameToEmail, DEFAULT_CREDIT_FEES, round2, isBlankItem,
+  minPartPrice, priceFromMargin, marginOf, partPriceOk,
 } from "./rules.ts";
 import { canAccess, canDelete, isFin, isOffice, navFor, homeFor } from "./permissions.ts";
 
@@ -98,4 +99,20 @@ test("linha de orçamento em branco", () => {
   assert.equal(isBlankItem({ description: null, unit_price: 0 }), true);
   assert.equal(isBlankItem({ description: "Pastilha (garantia)", unit_price: 0 }), false);
   assert.equal(isBlankItem({ description: "", unit_price: 50 }), false);
+});
+
+test("margem mínima de peças (igual a public.min_part_price)", () => {
+  assert.equal(minPartPrice(70, 30), 100);          // 70 ÷ 0,70 = 100,00 exato
+  assert.equal(minPartPrice(100, 30), 142.86);      // 142,857… → para cima
+  assert.equal(minPartPrice(100, 0), 0);            // sem mínimo
+  assert.equal(minPartPrice(0, 30), 0);
+  assert.equal(minPartPrice(33.33, 12.5), 38.10);   // 3333 ÷ 0,875 = 3809,14 → 3810
+  assert.equal(priceFromMargin(100, 30), 142.86);
+  assert.equal(priceFromMargin(100, 100), null);
+  assert.equal(marginOf(100, 142.86), 30);
+  assert.equal(marginOf(100, 0), null);
+  assert.equal(partPriceOk({ kind: "peca", unit_cost: 100, unit_price: 142.85 }, 30), false);
+  assert.equal(partPriceOk({ kind: "peca", unit_cost: 100, unit_price: 142.86 }, 30), true);
+  assert.equal(partPriceOk({ kind: "peca", unit_cost: 100, unit_price: 0 }, 30), true);   // garantia
+  assert.equal(partPriceOk({ kind: "mao", unit_cost: 100, unit_price: 10 }, 30), true);   // mão de obra fica de fora
 });
