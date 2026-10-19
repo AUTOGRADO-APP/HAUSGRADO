@@ -23,8 +23,8 @@ type Patch = Partial<Pick<QItem, "description" | "qty" | "unit_price" | "product
 const toL = (i: QItem): LItem => ({ ...i, qtyTxt: String(i.qty).replace(".", ","), priceTxt: numBR(i.unit_price) || "0" });
 const COLS = "id, kind, description, details, qty, unit_price, product_id, service_id, sku, position";
 
-export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
-  bundle: QuoteBundle; osList: OSOpt[]; produtos: PickProduct[]; servicos: ServOpt[]; hasPassword: boolean;
+export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDelete }: {
+  bundle: QuoteBundle; osList: OSOpt[]; produtos: PickProduct[]; servicos: ServOpt[]; hasPassword: boolean; canDelete: boolean;
 }) {
   const sb = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -34,6 +34,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
   const [validade, setValidade] = useState(String(bundle.quote.validity_days));
   const [modal, setModal] = useState<null | "pecas" | "serv" | "desc">(null);
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [delPend, setDelPend] = useState(false);
   const pend = useRef(new Map<string, { patch: Patch; t: ReturnType<typeof setTimeout> }>());
   const valT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputs = useRef(new Map<string, HTMLInputElement>());
@@ -201,6 +202,17 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
     if (q.service_order_id) await sb.from("service_order_history").insert({ service_order_id: q.service_order_id, text: "Orçamento enviado ao cliente pelo WhatsApp" });
     router.refresh();
   }
+  async function excluir() {
+    for (const { t } of pend.current.values()) clearTimeout(t);
+    pend.current.clear();
+    if (valT.current) { clearTimeout(valT.current); valT.current = null; }
+    const { data, error } = await sb.from("quotes").delete().eq("id", q.id).select("id");
+    if (error) return toast(errMsg(error), { err: true });
+    if (!data?.length) return toast("Só o usuário master pode excluir orçamentos.", { err: true });
+    if (q.service_order_id) await sb.from("service_order_history").insert({ service_order_id: q.service_order_id, text: `Orçamento nº ${q.number} excluído` });
+    toast(`Orçamento nº ${q.number} excluído`);
+    router.push("/orcamentos"); router.refresh();
+  }
   async function go(path: string) { await flush(); router.push(path); }
   async function guia() {
     if (!q.service_order_id || !o) return toast("Selecione o veículo (O.S.) deste orçamento antes de gerar a guia", { err: true });
@@ -295,6 +307,17 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword }: {
           <p className="hint" style={{ margin: "10px 0 0" }}>Ao aprovar, o carro passa automaticamente de Orçamento para Aprovado no quadro. O cliente também pode aprovar pelo link.</p>
           {o && <Link className="key" style={{ marginTop: 10, width: "100%" }} href={`/os/${o.id}`} onClick={() => void flush()}>Ir para a OS {o.number}</Link>}
         </section>
+        {canDelete && <section className="panel flat">
+          {osFin ? <span className="hint">A O.S. {o?.number} já foi finalizada: para apagar este orçamento, exclua a O.S.</span>
+            : delPend
+              ? <div className="stack" style={{ gap: 8 }}>
+                  <span>Excluir o orçamento nº {q.number} e todos os itens? Não dá para desfazer.</span>
+                  <div className="row">
+                    <button className="key danger sm" onClick={() => void excluir()}>Excluir orçamento</button>
+                    <button className="key sm" onClick={() => setDelPend(false)}>Cancelar</button>
+                  </div></div>
+              : <button className="key sm" onClick={() => setDelPend(true)}>Excluir orçamento</button>}
+        </section>}
       </aside>
 
       {modal === "pecas" && <ProductPicker produtos={produtos} qtd={qtdProd} onAdd={x => void addProduto(x)} onClose={() => setModal(null)} modo="orcamento" />}

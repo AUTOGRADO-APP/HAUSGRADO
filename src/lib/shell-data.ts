@@ -2,12 +2,13 @@ import "server-only";
 import { createClient, type Me } from "./supabase/server.ts";
 import { addDays, ymd } from "./labels.ts";
 import { estoqueBaixo } from "./estoque.ts";
+import { isFin } from "./permissions.ts";
 import type { ShellData } from "./types.ts";
 
 /** Dados do topo (LCD, sino e lembretes) carregados a cada navegação. */
 export async function loadShell(me: Me): Promise<ShellData> {
   const sb = await createClient();
-  const fin = me.role !== "atendente";
+  const fin = isFin(me.role);
   const hoje = ymd(), am = addDays(hoje, 1);
   const mesIni = hoje.slice(0, 8) + "01";
   const [board, shop, appts, contas, rec, prods] = await Promise.all([

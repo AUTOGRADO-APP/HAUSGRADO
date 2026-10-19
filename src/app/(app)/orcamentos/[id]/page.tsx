@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server.ts";
+import { createClient, getMe } from "@/lib/supabase/server.ts";
+import { canDelete } from "@/lib/permissions.ts";
 import type { PickProduct } from "@/components/ProductPicker.tsx";
 import { loadQuote } from "../data.ts";
 import { Editor, type OSOpt, type ServOpt } from "./Editor.tsx";
@@ -11,6 +12,7 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
   const b = await loadQuote(id);
   if (!b) notFound();
   const sb = await createClient();
+  const me = await getMe();
   const [{ data: oss }, { data: prods }, { data: servs }, { data: pw }, { data: extra }, { data: ativos }] = await Promise.all([
     sb.from("service_orders").select("id, number, plate, model, status, customer_id, customers(name)").order("number", { ascending: false }),
     sb.from("products").select("id, name, manufacturer, sku, ean, cost, price, category, viscosity, api, volume, application_spec, application_brands, additive_type, stock_qty").order("name"),
@@ -35,7 +37,7 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
   const servicos = ((servs ?? []) as ServOpt[]).map(s => ({ ...s, price: Number(s.price) || 0 }));
   return (
     <main id="view">
-      <Editor bundle={b} osList={osList} produtos={produtos} servicos={servicos} hasPassword={!!(pw as { active?: boolean } | null)?.active} />
+      <Editor bundle={b} osList={osList} produtos={produtos} servicos={servicos} hasPassword={!!(pw as { active?: boolean } | null)?.active} canDelete={canDelete(me?.role)} />
     </main>
   );
 }

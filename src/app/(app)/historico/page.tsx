@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server.ts";
+import { createClient, getMe } from "@/lib/supabase/server.ts";
+import { isOffice } from "@/lib/permissions.ts";
 import { quoteTotals } from "@/lib/rules.ts";
 import { ymd } from "@/lib/labels.ts";
 import { Historico, type HistRow } from "./Historico.tsx";
@@ -40,7 +41,7 @@ export default async function HistoricoPage() {
   return (
     <>
       {error && <div className="banner"><span>Erro ao carregar o histórico: {error.message}</span></div>}
-      <Historico rows={rows} />
+      <Historico rows={rows} valores={isOffice((await getMe())?.role)} />
     </>
   );
 }

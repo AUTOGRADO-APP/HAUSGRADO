@@ -8,6 +8,7 @@ import { STATUSES, type Status, type ShopFees } from "@/lib/rules.ts";
 import { STATUS_IDX, TIPOS, normPlaca } from "@/lib/labels.ts";
 import { addMediaRecord } from "@/lib/media.ts";
 import { errMsg, sfx, toast } from "@/lib/ui.ts";
+import { MSG_RECEBER } from "@/lib/permissions.ts";
 import { PaymentModal, type PayOS } from "@/components/PaymentModal.tsx";
 import { Plate } from "@/components/Plate.tsx";
 import { ICAM } from "@/components/icons.tsx";
@@ -24,8 +25,8 @@ const LABEL = Object.fromEntries(STATUSES.map(s => [s.id, s.label])) as Record<S
 const FILTROS = { parados: "Carros parados há 3 dias ou mais", entrega: "Prontos para entrega" } as const;
 const diasNaEtapa = (o: BoardCard) => (Date.now() - new Date(o.status_since).getTime()) / 864e5;
 
-export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceipt, filtro = null }: {
-  initial: BoardCard[]; fees: ShopFees; noMes: number; shopId: string; hasPassword: boolean; canUndoReceipt: boolean;
+export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceipt, canReceive, filtro = null }: {
+  initial: BoardCard[]; fees: ShopFees; noMes: number; shopId: string; hasPassword: boolean; canUndoReceipt: boolean; canReceive: boolean;
   filtro?: keyof typeof FILTROS | null;
 }) {
   const sb = createClient();
@@ -75,7 +76,10 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
   async function move(id: string, to: Status) {
     const c = cards.find(x => x.id === id);
     if (!c || c.status === to) return;
-    if (to === "finalizado") { setPaying(c); sfx("tap"); return; }   // finalizar sempre passa pelo pagamento
+    if (to === "finalizado") {   // finalizar sempre passa pelo pagamento
+      if (!canReceive) return toast(MSG_RECEBER, { err: true });
+      setPaying(c); sfx("tap"); return;
+    }
     if (c.status === "finalizado") return toast("O.S. finalizada só volta pelo Desfazer logo após o recebimento.", { err: true });
     const prev = c.status;
     setCards(cs => cs.map(x => (x.id === id ? { ...x, status: to, status_since: new Date().toISOString() } : x)));

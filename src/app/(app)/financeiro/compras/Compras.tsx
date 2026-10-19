@@ -7,7 +7,7 @@ import { FPAGN, dataBR, periodo, ymd } from "@/lib/labels.ts";
 import { compraSit, naFaixa, purchaseTotal, type PurchaseRow } from "@/lib/fin-b.ts";
 import { PerBar } from "../despesas/fin-ui.tsx";
 
-export function Compras({ list }: { list: PurchaseRow[] }) {
+export function Compras({ list, calendario }: { list: PurchaseRow[]; calendario: boolean }) {
   const router = useRouter();
   const [st, setSt] = useState(() => { const [de, ate] = periodo("mes"); return { de, ate, per: "mes", busca: "" }; });
   const hoje = ymd();
@@ -33,7 +33,7 @@ export function Compras({ list }: { list: PurchaseRow[] }) {
       <div className="g-ops">
         <div className="kpi"><span className="label">Compras no período</span><strong>{brl(tot)}</strong><span className="hint">{rows.length} compra{rows.length === 1 ? "" : "s"}</span></div>
         <div className="kpi"><span className="label">A pagar (boletos em aberto)</span><strong>{brl(pend.reduce((a, c) => a + purchaseTotal(c), 0))}</strong>
-          <span className="hint">{pend.length} boleto{pend.length === 1 ? "" : "s"} · <Link className="lnk" href="/financeiro/calendario">ver calendário</Link></span></div>
+          <span className="hint">{pend.length} boleto{pend.length === 1 ? "" : "s"}{calendario && <> · <Link className="lnk" href="/financeiro/calendario">ver calendário</Link></>}</span></div>
         <div className={`kpi ${venc.length ? "alert" : ""}`}><span className="label">Vencidos</span><strong>{brl(venc.reduce((a, c) => a + purchaseTotal(c), 0))}</strong>
           <span className="hint">{venc.length ? `${venc.length} boleto${venc.length > 1 ? "s" : ""} em atraso` : "Nenhum boleto vencido"}</span></div>
       </div>

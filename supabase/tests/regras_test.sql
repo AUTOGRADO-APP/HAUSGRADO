@@ -1,10 +1,10 @@
 -- Testes das regras do banco (RLS, pagamento, desconto, compras, comissões, portal).
 -- Rodar SÓ no banco LOCAL (supabase start → supabase db reset), nunca na produção: cria usuários de teste.
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/regras_test.sql
--- Resultado esperado: linhas T1..T34 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
+-- Resultado esperado: linhas T1..T50 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
 
 \set ON_ERROR_STOP 0
-insert into auth.users values ('11111111-1111-4111-8111-111111111111','master@x'),('22222222-2222-4222-8222-222222222222','admin@x'),('33333333-3333-4333-8333-333333333333','atend@x'),('44444444-4444-4444-8444-444444444444','outro@x');
+insert into auth.users (id, email) values ('11111111-1111-4111-8111-111111111111','master@x'),('22222222-2222-4222-8222-222222222222','admin@x'),('33333333-3333-4333-8333-333333333333','atend@x'),('44444444-4444-4444-8444-444444444444','outro@x');
 insert into public.shops (id,name) values ('00000000-0000-4000-8000-000000000002','Outra');
 insert into public.profiles values
  ('11111111-1111-4111-8111-111111111111','00000000-0000-4000-8000-000000000001','Master','master','master',true,now()),
@@ -30,7 +30,7 @@ select 'T6 total orç 501 (1129.60-50=1079.60)' t, quote_total('00000000-0000-40
 select register_receipt('00000000-0000-4000-8000-0000000000e3', '[{"method":"pix","amount":300}]', null); -- falta 50 → falha
 select 'T7 atend registra com senha' t, register_receipt('00000000-0000-4000-8000-0000000000e3', '[{"method":"pix","amount":100},{"method":"credito","amount":200,"installments":3}]', '1234') is not null;
 select 'T8 os_is_paid' t, os_is_paid('00000000-0000-4000-8000-0000000000e3');
-select 'T9 atend não vê receipts (0)' t, count(*) from receipts;
+select 'T9 atend vê entradas (1)' t, count(*) from receipts;
 insert into expenses (category,amount,due_date) values ('Água',10,current_date); -- falha
 select set_discount_password('9999'); -- falha (não master)
 select check_discount_password('00000000-0000-4000-8000-000000000001','1234'); -- sem permissão
@@ -154,4 +154,43 @@ select 'T40 admin cria meta (1 de 2030)' t, count(*) from revenue_goals where mo
 reset role;
 set role authenticated; set request.jwt.claim.sub = '44444444-4444-4444-8444-444444444444';
 select 'T41 outra oficina não vê (0)' t, count(*) from revenue_goals where month >= '2030-01-01';
+reset role;
+
+-- ===== PERFIS E EXCLUSÃO (T42–T50) =====
+insert into auth.users (id, email) values ('55555555-5555-4555-8555-555555555555','mec@x');
+insert into public.profiles values ('55555555-5555-4555-8555-555555555555','00000000-0000-4000-8000-000000000001','Mecânico','mecanico','mecanico',true,now());
+set role authenticated; set request.jwt.claim.sub = '55555555-5555-4555-8555-555555555555';
+select 'T42 mecânico vê O.S. (3)' t, count(*) from service_orders;
+select 'T43 mecânico não vê orçamentos nem itens (0, 0)' t, (select count(*) from quotes), (select count(*) from quote_items);
+select 'T44 mecânico não vê entradas, compras nem fornecedores (0, 0, 0)' t, (select count(*) from receipts), (select count(*) from purchases), (select count(*) from suppliers);
+insert into quotes (customer_id, plate) values ('00000000-0000-4000-8000-0000000000c1', 'ABC1234'); -- falha
+select apply_quote_discount('00000000-0000-4000-8000-0000000000f1', 1, '1234'); -- falha
+select register_receipt('00000000-0000-4000-8000-0000000000e1', jsonb_build_array(jsonb_build_object('method','pix','amount', os_total('00000000-0000-4000-8000-0000000000e1'))), null); -- falha (mecânico não recebe)
+update customers set name = 'X' where id = '00000000-0000-4000-8000-0000000000c1';      -- não altera (RLS)
+insert into customers (name, phone) values ('Cliente do mecânico', '61900001111');
+select 'T45 mecânico cadastra cliente mas não edita (1, Mariana Souza)' t, (select count(*) from customers where name = 'Cliente do mecânico'), (select name from customers where id = '00000000-0000-4000-8000-0000000000c1');
+delete from service_orders where id = '00000000-0000-4000-8000-0000000000e1';           -- não apaga (RLS)
+reset role;
+set role authenticated; set request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
+select 'T46 atend vê compras e fornecedores, não despesas (true, true, 0)' t, (select count(*) > 0 from purchases), (select count(*) > 0 from suppliers), (select count(*) from expenses);
+reset role;
+set role authenticated; set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
+delete from quotes where id = '00000000-0000-4000-8000-0000000000f1';
+delete from customers where id = '00000000-0000-4000-8000-0000000000c1';
+delete from service_orders where id = '00000000-0000-4000-8000-0000000000e1';
+select 'T47 admin não exclui orçamento, cliente nem O.S. (1, 1, 1)' t, (select count(*) from quotes where id = '00000000-0000-4000-8000-0000000000f1'), (select count(*) from customers where id = '00000000-0000-4000-8000-0000000000c1'), (select count(*) from service_orders where id = '00000000-0000-4000-8000-0000000000e1');
+reset role;
+set role authenticated; set request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
+select 'T48 antes: O.S. 1002 finalizada com entrada (finalizado, 1)' t, (select status from service_orders where id = '00000000-0000-4000-8000-0000000000e2'), (select count(*) from receipts where service_order_id = '00000000-0000-4000-8000-0000000000e2');
+delete from service_orders where id = '00000000-0000-4000-8000-0000000000e2';
+select 'T48 master exclui O.S. finalizada: some O.S., orçamento, entrada, taxas e baixa de estoque (0, 0, 0, 0, 0)' t,
+  (select count(*) from service_orders where id = '00000000-0000-4000-8000-0000000000e2'), (select count(*) from quotes where id = '00000000-0000-4000-8000-0000000000f2'),
+  (select count(*) from receipts where service_order_id = '00000000-0000-4000-8000-0000000000e2'), (select count(*) from expenses where service_order_id = '00000000-0000-4000-8000-0000000000e2' or (source = 'fee' and description like '%1002%')),
+  (select count(*) from stock_movements where service_order_id = '00000000-0000-4000-8000-0000000000e2');
+delete from quotes where id = '00000000-0000-4000-8000-0000000000f1';
+select 'T49 master exclui orçamento e a O.S. continua (0, 1)' t, (select count(*) from quotes where id = '00000000-0000-4000-8000-0000000000f1'), (select count(*) from service_orders where id = '00000000-0000-4000-8000-0000000000e1');
+delete from customers where id = '00000000-0000-4000-8000-0000000000c3';
+select 'T50 master exclui cliente com O.S. e orçamento; veículo fica sem dono (0, 0, 0, true)' t,
+  (select count(*) from customers where id = '00000000-0000-4000-8000-0000000000c3'), (select count(*) from service_orders where id = '00000000-0000-4000-8000-0000000000e3'),
+  (select count(*) from quotes where id = '00000000-0000-4000-8000-0000000000f3'), (select customer_id is null from vehicles where id = '00000000-0000-4000-8000-0000000000d3');
 reset role;

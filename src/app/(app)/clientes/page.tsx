@@ -1,10 +1,12 @@
-import { createClient } from "@/lib/supabase/server.ts";
+import { createClient, getMe } from "@/lib/supabase/server.ts";
+import { canDelete } from "@/lib/permissions.ts";
 import { Clientes, type CliRow } from "./Clientes.tsx";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientesPage() {
   const sb = await createClient();
+  const me = await getMe();
   const [{ data: clientes, error }, { data: veics }, { data: oss }] = await Promise.all([
     sb.from("customers").select("id, name, phone, document, zip_code").order("name"),
     sb.from("vehicles").select("customer_id, plate"),
@@ -25,7 +27,7 @@ export default async function ClientesPage() {
   return (
     <>
       {error && <div className="banner"><span>Erro ao carregar os clientes: {error.message}</span></div>}
-      <Clientes rows={rows} />
+      <Clientes rows={rows} canDelete={canDelete(me?.role)} />
     </>
   );
 }

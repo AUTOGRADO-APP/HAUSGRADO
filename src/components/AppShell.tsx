@@ -13,6 +13,7 @@ import { qtdBR } from "@/lib/estoque.ts";
 import { poseFor } from "@/lib/sprite.ts";
 import { copyText, errMsg, getTheme, setSom, setTheme, sfx, somOn, toast } from "@/lib/ui.ts";
 import type { ShellData, ShellBill } from "@/lib/types.ts";
+import { canAccess, isFin } from "@/lib/permissions.ts";
 import { MascotButton } from "./Mascot.tsx";
 import { Plate } from "./Plate.tsx";
 import { ToastHost } from "./Toast.tsx";
@@ -37,9 +38,9 @@ function NavIcon({ k }: { k: string }) {
   }
 }
 
-const NAV: { k: string; href: string; l: string; fin?: boolean }[] = [
-  { k: "gestao", href: "/gestao", l: "Gestão", fin: true },
-  { k: "financeiro", href: "/financeiro/entradas", l: "Financeiro", fin: true },
+const NAV: { k: string; href: string; l: string }[] = [
+  { k: "gestao", href: "/gestao", l: "Gestão" },
+  { k: "financeiro", href: "/financeiro/entradas", l: "Financeiro" },
   { k: "quadro", href: "/quadro", l: "Quadro" },
   { k: "agenda", href: "/calendario", l: "Calendário" },
   { k: "clientes", href: "/clientes", l: "Clientes" },
@@ -64,7 +65,7 @@ function Brand({ small = "Gestão de pátio" }: { small?: string }) {
 /* ---------- LCD de dicas ---------- */
 const TICK = { msgs: [] as string[], i: -1, x: 0, last: 0, w: 0, cur: "" };
 function tickMsgs(d: ShellData) {
-  const fin = d.me.role !== "atendente"; const m: string[] = [];
+  const fin = isFin(d.me.role); const m: string[] = [];
   m.push(`${d.patio} carros no pátio · ${d.servico} em serviço`);
   if (d.parados) m.push(`Atenção: ${d.parados} carro${d.parados > 1 ? "s" : ""} parado${d.parados > 1 ? "s" : ""} há 3+ dias na mesma etapa`);
   const am = d.amanha.filter(a => !a.reminder_sent_at).length;
@@ -141,7 +142,7 @@ export function BillCard({ d, onPay, quando }: { d: ShellBill; onPay: (d: ShellB
 
 function LembPanel({ data, onClose }: { data: ShellData; onClose: () => void }) {
   const router = useRouter(); const sb = createClient();
-  const fin = data.me.role !== "atendente"; const hoje = ymd();
+  const fin = isFin(data.me.role); const hoje = ymd();
   async function sent(id: string) {
     await sb.from("appointments").update({ reminder_sent_at: new Date().toISOString() }).eq("id", id);
     setTimeout(() => { router.refresh(); toast("WhatsApp aberto com o lembrete. Toque em enviar."); }, 60);
@@ -236,7 +237,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
   const [lemb, setLemb] = useState(false);
   const [menu, setMenu] = useState(false);   // menu retrátil do celular (≤ 980px)
   useTabelasCartao();
-  const U = data.me; const fin = U.role !== "atendente"; const master = U.role === "master";
+  const U = data.me; const fin = isFin(U.role); const master = U.role === "master";
   useEffect(() => { setSomS(somOn()); setTema(getTheme()); }, []);
   useEffect(() => { setLemb(false); setMenu(false); }, [path]);
   // menu aberto: trava a rolagem da página atrás dele
@@ -316,16 +317,16 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
               </button>
             </div>
             <nav className="side-nav" aria-label="Menu principal">
-              {NAV.filter(n => fin || !n.fin).map(n => {
-                const isFin = n.k === "financeiro";
-                const on = isFin ? finOpen : cur(n.href) || (n.k === "quadro" && path.startsWith("/os/"));
+              {NAV.filter(n => canAccess(U.role, n.href)).map(n => {
+                const isGrupo = n.k === "financeiro";
+                const on = isGrupo ? finOpen : cur(n.href) || (n.k === "quadro" && path.startsWith("/os/"));
                 return (
                   <div key={n.k} style={{ display: "contents" }}>
-                    <Link className={`key ${on ? "on" : ""}`} href={n.href} aria-current={on ? "page" : undefined} aria-expanded={isFin ? on : undefined} onClick={() => { sfx("tap"); if (!isFin || on) setMenu(false); }}>
+                    <Link className={`key ${on ? "on" : ""}`} href={n.href} aria-current={on ? "page" : undefined} aria-expanded={isGrupo ? on : undefined} onClick={() => { sfx("tap"); if (!isGrupo || on) setMenu(false); }}>
                       <NavIcon k={n.k} /><span>{n.l}</span>
-                      {isFin && <svg className="ic chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d={on ? "M6 15l6-6 6 6" : "M9 6l6 6-6 6"} /></svg>}
+                      {isGrupo && <svg className="ic chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d={on ? "M6 15l6-6 6 6" : "M9 6l6 6-6 6"} /></svg>}
                     </Link>
-                    {isFin && on && <div className="sub-nav">{SUB.map(([h, l]) => <Link key={h} className={`key sub ${cur(h) ? "on" : ""}`} href={h} onClick={() => { sfx("tap"); setMenu(false); }}>{l}</Link>)}</div>}
+                    {isGrupo && on && <div className="sub-nav">{SUB.filter(([h]) => canAccess(U.role, h)).map(([h, l]) => <Link key={h} className={`key sub ${cur(h) ? "on" : ""}`} href={h} onClick={() => { sfx("tap"); setMenu(false); }}>{l}</Link>)}</div>}
                   </div>
                 );
               })}

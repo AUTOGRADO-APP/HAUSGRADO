@@ -81,22 +81,23 @@ Convenções de código: código, nomes de tabelas e colunas em **inglês** (sna
 
 ## 3. Perfis e permissões
 
-| Recurso / página | Master | Administrador | Atendente |
-|---|:-:|:-:|:-:|
-| Gestão | ✅ | ✅ | ❌ |
-| Financeiro (Entradas, Compras, Despesas, Fornecedores, Comissões, Calendário financeiro) | ✅ | ✅ | ❌ |
-| Receber pagamento ao finalizar O.S. | ✅ | ✅ | ✅ |
-| Quadro, Nova O.S., O.S. | ✅ | ✅ | ✅ |
-| Excluir O.S. | ✅ | ✅ | ❌ |
-| Calendário | ✅ | ✅ | ✅ |
-| Clientes | ✅ | ✅ | ✅ |
-| Orçamentos (+ PDFs) | ✅ | ✅ | ✅ |
-| Produtos | ✅ | ✅ | ✅ |
-| Serviços (catálogo) | ✅ | ✅ | ✅ |
-| Histórico de O.S. | ✅ | ✅ | ✅ |
-| Comissões (submenu do Financeiro) | ✅ | ✅ | ❌ |
-| Comissão estimada no card do mecânico (Gestão) | ✅ | ✅ | ❌ |
-| Configurações (engrenagem), Usuários, Equipe, % de comissão | ✅ | ❌ | ❌ |
+| Recurso / página | Master | Administrador | Atendente | Mecânico |
+|---|:-:|:-:|:-:|:-:|
+| Gestão | ✅ | ✅ | ❌ | ❌ |
+| Financeiro: Entradas, Compras, Fornecedores | ✅ | ✅ | ✅ | ❌ |
+| Financeiro: Despesas, Comissões, Metas, Calendário financeiro | ✅ | ✅ | ❌ | ❌ |
+| Receber pagamento ao finalizar O.S. | ✅ | ✅ | ✅ | ❌ |
+| Desfazer recebimento | ✅ | ✅ | ❌ | ❌ |
+| Quadro, Nova O.S., O.S. | ✅ | ✅ | ✅ | ✅ |
+| Excluir O.S., orçamentos e clientes | ✅ | ❌ | ❌ | ❌ |
+| Calendário | ✅ | ✅ | ✅ | ✅ |
+| Clientes | ✅ | ✅ | ✅ | ❌ (vê o nome na O.S. e cadastra na Nova O.S.) |
+| Orçamentos (+ PDFs e guia) | ✅ | ✅ | ✅ | ❌ |
+| Produtos, Serviços (catálogo), Histórico de O.S. | ✅ | ✅ | ✅ | ✅ (Histórico sem valores) |
+| Comissão estimada no card do mecânico (Gestão) | ✅ | ✅ | ❌ | ❌ |
+| Configurações (engrenagem), Usuários, Equipe, % de comissão | ✅ | ❌ | ❌ | ❌ |
+
+Perfis (migration `20261019120000_perfis.sql`): `master`, `admin`, `atendente`, `mecanico`. No banco: `is_master()`, `is_fin()` (master/admin) e `is_office()` (todos menos mecânico). Na tela: `canDelete`, `isFin`, `isOffice` em `src/lib/permissions.ts`. Excluir uma O.S. leva junto orçamento, mídias, histórico e, se finalizada, entrada, taxas, comissão e baixa de estoque; excluir um cliente leva junto as O.S., orçamentos e agendamentos dele.
 
 Regras:
 - As permissões precisam valer **no banco**, com RLS do Supabase e uma função `current_role()`, e não só escondendo botões. O menu mostra apenas as páginas permitidas, e acessar uma rota proibida redireciona para o Quadro com o aviso "Acesso restrito ao seu perfil".

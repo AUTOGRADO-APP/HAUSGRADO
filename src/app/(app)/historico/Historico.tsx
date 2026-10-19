@@ -13,7 +13,8 @@ export interface HistRow {
   aprovado: boolean;
 }
 
-export function Historico({ rows }: { rows: HistRow[] }) {
+/** valores = false para o mecânico (sem acesso a orçamentos): some a coluna e o total. */
+export function Historico({ rows, valores }: { rows: HistRow[]; valores: boolean }) {
   const router = useRouter();
   const [H, setH] = useState(() => { const [de, ate] = periodo("mes"); return { de, ate, busca: "", per: "mes" }; });
 
@@ -44,13 +45,13 @@ export function Historico({ rows }: { rows: HistRow[] }) {
               <input className="input" id="h-busca" placeholder="Placa, cliente ou nº da O.S." value={H.busca} onChange={e => setH({ ...H, busca: e.target.value })} /></label>
           </div>
         </section>
-        <div className="stats" style={{ gridTemplateColumns: "repeat(2,minmax(0,1fr))" }}>
+        <div className="stats" style={{ gridTemplateColumns: `repeat(${valores ? 2 : 1},minmax(0,1fr))` }}>
           <div className="stat"><span>O.S. no período</span><strong>{String(list.length).padStart(2, "0")}</strong></div>
-          <div className="stat hl"><span>Orçamentos aprovados no período</span><strong>{brl(total)}</strong></div>
+          {valores && <div className="stat hl"><span>Orçamentos aprovados no período</span><strong>{brl(total)}</strong></div>}
         </div>
         <section className="panel">
           <div className="ph"><h2>O.S. finalizadas</h2><span className="count">{list.length}</span></div>
-          <div className="tbl-wrap"><table><thead><tr><th>O.S.</th><th>Placa</th><th>Veículo</th><th>Cliente</th><th>Tipo</th><th>Entrada</th><th>Saída</th><th className="num">Orçamento</th></tr></thead><tbody>
+          <div className="tbl-wrap"><table><thead><tr><th>O.S.</th><th>Placa</th><th>Veículo</th><th>Cliente</th><th>Tipo</th><th>Entrada</th><th>Saída</th>{valores && <th className="num">Orçamento</th>}</tr></thead><tbody>
             {list.map(o => (
               <tr key={o.id} className="click" onClick={() => router.push(`/os/${o.id}`)}>
                 <td className="mono"><b>{o.number}</b></td>
@@ -60,10 +61,10 @@ export function Historico({ rows }: { rows: HistRow[] }) {
                 <td>{TIPOS[o.tipo] ?? o.tipo}</td>
                 <td className="mono">{dataBR(o.entered_at)}</td>
                 <td className="mono">{dataBR(o.exited_at)}</td>
-                <td className="num">{o.total == null ? "—" : brl(o.total)}</td>
+                {valores && <td className="num">{o.total == null ? "—" : brl(o.total)}</td>}
               </tr>
             ))}
-            {!list.length && <tr><td colSpan={8}><div className="empty">Nenhuma O.S. finalizada neste período</div></td></tr>}
+            {!list.length && <tr><td colSpan={valores ? 8 : 7}><div className="empty">Nenhuma O.S. finalizada neste período</div></td></tr>}
           </tbody></table></div>
         </section>
       </div>
