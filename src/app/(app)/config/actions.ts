@@ -15,7 +15,7 @@ async function guard() {
   return { me, error: null } as const;
 }
 const hasKey = () => !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-const NO_KEY = "Para gerenciar usuários, adicione SUPABASE_SERVICE_ROLE_KEY nas variáveis do projeto na Vercel.";
+const NO_KEY = "Este deploy não tem a SUPABASE_SERVICE_ROLE_KEY. Confira a variável (ambiente Production) na Vercel e faça um Redeploy.";
 
 /** Perfil alvo, sempre da mesma oficina de quem chama. */
 async function target(id: string, shopId: string) {
@@ -39,11 +39,12 @@ export async function createUser(input: { nome: string; usuario: string; senha: 
   if (!/^[a-z0-9._-]{3,}$/.test(usuario)) return { ok: false, error: "Usuário: 3+ caracteres (letras, números, ponto, hífen ou _)." };
   if ((input.senha || "").length < 6) return { ok: false, error: "Senha: mínimo de 6 caracteres." };
   if (!ROLES.includes(papel)) return { ok: false, error: "Escolha o perfil." };
-  const domain = process.env.NEXT_PUBLIC_AUTH_EMAIL_DOMAIN;
-  if (!domain) return { ok: false, error: "Falta a variável NEXT_PUBLIC_AUTH_EMAIL_DOMAIN." };
+  // Mesmo domínio (e mesmo padrão) do login, senão o usuário criado não consegue entrar.
+  const domain = process.env.NEXT_PUBLIC_AUTH_EMAIL_DOMAIN ?? "usuarios.hausgrado.app";
 
   const adm = createAdminClient();
-  const { data: dup } = await adm.from("profiles").select("id").eq("username", usuario).maybeSingle();
+  const { data: dup, error: e0 } = await adm.from("profiles").select("id").eq("username", usuario).maybeSingle();
+  if (e0) return { ok: false, error: "A SUPABASE_SERVICE_ROLE_KEY da Vercel não foi aceita pelo Supabase (" + e0.message + "). Use a chave service_role (ou secret) do projeto hyvkfyvptqzpbymurqvt." };
   if (dup) return { ok: false, error: "Esse usuário já existe." };
   const { data, error: e1 } = await adm.auth.admin.createUser({
     email: `${usuario}@${domain}`, password: input.senha, email_confirm: true, user_metadata: { full_name: nome },
