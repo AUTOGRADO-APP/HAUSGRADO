@@ -8,8 +8,9 @@ export interface GOrder {
   id: string; status: string; entry_type: string;
   entered_at: string; exited_at: string | null; technician_id: string | null;
 }
-/** Entrada (1 por O.S. finalizada). difference < 0 = desconto concedido no fechamento. */
-export interface GReceipt { service_order_id: string; received_at: string; total: number; difference: number }
+/** Entrada (1 por O.S. finalizada). difference < 0 = desconto concedido no fechamento.
+ *  service_order_id null = entrada FANTASMA (ajuste da implantação): soma no faturamento, mas não conta como O.S. */
+export interface GReceipt { service_order_id: string | null; received_at: string; total: number; difference: number }
 export interface GQuoteItem { kind: "peca" | "mao"; description: string | null; qty: number; unit_price: number }
 export interface GQuote {
   id: string; service_order_id: string | null; status: string; discount: number; created_at: string; items: GQuoteItem[];
@@ -20,6 +21,8 @@ export interface MesDados {
   n: number; fat: number; pecas: number; mao: number; ticket: number; tempo: number;
   /** descontos dados no fechamento (soma positiva) e em quantas O.S. */
   desc: number; descN: number;
+  /** soma das entradas fantasma (ajustes da implantação), já incluída em fat */
+  fantasma: number;
   serv: { n: string; q: number; v: number }[]; tipos: Record<string, number>;
 }
 /** Um dia do mês: recebido no dia (v), nº de recebimentos (n) e acumulado até o dia (acc). */
@@ -77,11 +80,13 @@ export function recebimentosDoMes(receipts: GReceipt[], mes: string, ateDia = 31
 
 export function mesDados(receipts: GReceipt[], orders: Map<string, GOrder>, qmap: Map<string, GQuote>, mes: string, ateDia = 31): MesDados {
   const recs = recebimentosDoMes(receipts, mes, ateDia);
-  let fat = 0, pecas = 0, mao = 0, d = 0, nd = 0, desc = 0, descN = 0;
+  let fat = 0, fatOS = 0, nOS = 0, fantasma = 0, pecas = 0, mao = 0, d = 0, nd = 0, desc = 0, descN = 0;
   const serv: Record<string, { n: string; q: number; v: number }> = {};
   const tipos: Record<string, number> = { servico: 0, manutencao: 0, garantia: 0 };
   for (const r of recs) {
     fat += Number(r.total);
+    if (!r.service_order_id) { fantasma += Number(r.total); continue; }
+    fatOS += Number(r.total); nOS++;
     if (Number(r.difference) < 0) { desc -= Number(r.difference); descN++; }
     const o = orders.get(r.service_order_id);
     if (o) {
@@ -102,8 +107,8 @@ export function mesDados(receipts: GReceipt[], orders: Map<string, GOrder>, qmap
     }
   }
   return {
-    n: recs.length, fat: round2(fat), pecas: round2(pecas), mao: round2(mao),
-    ticket: recs.length ? fat / recs.length : 0, tempo: nd ? d / nd : 0, desc: round2(desc), descN,
+    n: nOS, fat: round2(fat), pecas: round2(pecas), mao: round2(mao),
+    ticket: nOS ? fatOS / nOS : 0, tempo: nd ? d / nd : 0, desc: round2(desc), descN, fantasma: round2(fantasma),
     serv: Object.values(serv).sort((a, b) => b.q - a.q || b.v - a.v), tipos,
   };
 }
@@ -118,7 +123,7 @@ export function serieMes(receipts: GReceipt[], mes: string): DiaMes[] {
     const rs = receipts.filter(r => diaRec(r) === k);
     const v = round2(rs.reduce((a, r) => a + Number(r.total), 0));
     acc = round2(acc + v);
-    out.push({ k, d, v, n: rs.length, acc });
+    out.push({ k, d, v, n: rs.filter(r => r.service_order_id).length, acc });
   }
   return out;
 }
@@ -152,8 +157,8 @@ export function computeGestao(input: {
   const taxa = nDec ? Math.round(nAprov / nDec * 100) : 0;
 
   // por mecânico: entradas do mês pelo responsável da O.S.
-  const recMes = recebimentosDoMes(receipts, mes);
-  const tecDe = (r: GReceipt) => byId.get(r.service_order_id)?.technician_id ?? null;
+  const recMes = recebimentosDoMes(receipts, mes).filter(r => r.service_order_id);   // fantasma não tem mecânico
+  const tecDe = (r: GReceipt) => byId.get(r.service_order_id!)?.technician_id ?? null;
   const nome = new Map(techs.map(t => [t.id, t.name]));
   const ids = new Set<string | null>([
     ...techs.filter(t => t.active).map(t => t.id),
@@ -162,8 +167,8 @@ export function computeGestao(input: {
   const mec: MecCard[] = [...ids].map(id => {
     const f = recMes.filter(r => tecDe(r) === id);
     const fat = round2(f.reduce((a, r) => a + Number(r.total), 0));
-    const mao = round2(f.reduce((a, r) => a + (qmap.has(r.service_order_id) ? itemsSum(qmap.get(r.service_order_id)!, "mao") : 0), 0));
-    const os = f.map(r => byId.get(r.service_order_id)).filter((o): o is GOrder => !!o?.exited_at);
+    const mao = round2(f.reduce((a, r) => a + (qmap.has(r.service_order_id!) ? itemsSum(qmap.get(r.service_order_id!)!, "mao") : 0), 0));
+    const os = f.map(r => byId.get(r.service_order_id!)).filter((o): o is GOrder => !!o?.exited_at);
     const ag = patio.filter(o => o.technician_id === id);
     return {
       id, n: id ? nome.get(id) ?? "—" : "", q: f.length, fat, mao,

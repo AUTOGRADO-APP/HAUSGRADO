@@ -855,3 +855,10 @@ body:has(.side) .lcd-tick{flex:1 1 auto;width:auto;max-width:none;min-width:260p
   .mg-nums>div{grid-template-columns:1fr auto;align-items:baseline;column-gap:10px}
   .mg-nums dd{font-size:12.5pt;white-space:nowrap}.mg-nums .hint{grid-column:1/-1}
 }
+
+/* Entradas: entrada FANTASMA (só master, ajustes da implantação) */
+.chip.ghost{background:transparent;border-style:dashed;color:var(--muted);font-family:var(--font-num);letter-spacing:.04em}
+tr.ghost td{background:repeating-linear-gradient(135deg,transparent 0 8px,var(--border) 8px 9px)}
+.ghost-del{justify-content:flex-end;gap:6px;margin-top:6px;display:flex}
+.sg-fantasma{background:repeating-linear-gradient(135deg,#9aa0a6 0 3px,#c9c4c2 3px 6px)}
+.meter span.sg-fantasma{background:repeating-linear-gradient(135deg,#9aa0a6 0 3px,#c9c4c2 3px 6px)}
