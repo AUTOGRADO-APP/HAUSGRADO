@@ -11,7 +11,7 @@ interface Mov { id: string; qty: number; kind: string; reason: string | null; oc
 const KIND: Record<string, string> = { compra: "Compra", os: "O.S.", ajuste: "Ajuste" };
 type Modo = "inventario" | "entrada" | "saida";
 
-export function EstoquePanel({ p }: { p: { id: string; name: string; stock_qty: number; min_stock: number; reserved: number; incoming: number } }) {
+export function EstoquePanel({ p, liberado }: { p: { id: string; name: string; stock_qty: number; min_stock: number; reserved: number; incoming: number }; liberado: boolean }) {
   const router = useRouter();
   const [movs, setMovs] = useState<Mov[] | null>(null);
   const [aj, setAj] = useState(false);
@@ -64,7 +64,8 @@ export function EstoquePanel({ p }: { p: { id: string; name: string; stock_qty: 
       </div>
       <p className="hint" style={{ margin: "8px 0 12px" }}>Reservado = peças em orçamentos aprovados de carros no pátio. A caminho = compras ainda não recebidas.{p.min_stock > 0 ? ` Mínimo: ${qtdBR(p.min_stock)}.` : ""}</p>
 
-      {aj ? (
+      {!liberado ? <p className="hint bal-lock" id="est-trava">Estoque travado. Para alterar, use o botão <b>Balanço</b> no topo da lista.</p>
+      : aj ? (
         <div className="stack est-aj">
           <div className="opt-grid" role="radiogroup" aria-label="Tipo de ajuste">
             {([["inventario", "Inventário"], ["entrada", "Entrada"], ["saida", "Saída"]] as [Modo, string][]).map(([k, l]) => (
