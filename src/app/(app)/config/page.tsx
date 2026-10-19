@@ -8,7 +8,7 @@ export default async function ConfigPage() {
   const sb = await createClient();
   const me = await getMe();
   const [shop, users, techs, pw] = await Promise.all([
-    sb.from("shops").select("id, name, portal_base_url, plate_api_provider, commission_pct, fee_debit_pct, fee_pix_pct, fee_credit_pct").maybeSingle(),
+    sb.from("shops").select("id, name, portal_base_url, plate_api_provider, commission_pct, min_part_margin_pct, fee_debit_pct, fee_pix_pct, fee_credit_pct").maybeSingle(),
     sb.from("profiles").select("id, full_name, username, role, active").order("full_name"),
     sb.from("technicians").select("id, name, active").eq("active", true).order("name"),
     sb.rpc("discount_password_status"),
@@ -22,7 +22,7 @@ export default async function ConfigPage() {
         <ConfigView
           meId={me!.id}
           shop={{
-            ...s, commission_pct: Number(s.commission_pct), fee_debit_pct: Number(s.fee_debit_pct), fee_pix_pct: Number(s.fee_pix_pct),
+            ...s, commission_pct: Number(s.commission_pct), min_part_margin_pct: Number(s.min_part_margin_pct) || 0, fee_debit_pct: Number(s.fee_debit_pct), fee_pix_pct: Number(s.fee_pix_pct),
             fee_credit_pct: Array.from({ length: 12 }, (_, i) => Number(s.fee_credit_pct?.[i] ?? 0)),
           }}
           users={(users.data ?? []) as CfgUser[]}

@@ -126,3 +126,19 @@ test("gestão: resultado do mês pelo regime de caixa (despesas pagas no mês)",
   assert.equal(resultadoMes(10000, [{ category: "Energia", amount: 600, paid_on: "2026-10-20" }], "2026-10", 19).outras, 0);
   assert.equal(resultadoMes(0, [], "2026-10").margem, null);
 });
+
+test("gestão: entrada fantasma soma no faturamento, mas não conta como O.S. nem vai para mecânico", () => {
+  const G = computeGestao({
+    orders: [os("a", "t1")], quotes: [orc("qa", "a", "aprovado", [["mao", 200]])],
+    techs: [{ id: "t1", name: "Arthur", active: true }], commissionPct: 5, mes: "2026-10", hoje: "2026-10-19",
+    receipts: [rec("a", "2026-10-05T10:00:00-03:00", 200), { service_order_id: null, received_at: "2026-10-02T12:00:00-03:00", total: 1000, difference: 0 }],
+  });
+  assert.equal(G.M.fat, 1200);
+  assert.equal(G.M.n, 1);
+  assert.equal(G.M.ticket, 200);
+  assert.equal(G.M.fantasma, 1000);
+  assert.equal(G.cur[1].v, 1000);
+  assert.equal(G.cur[1].n, 0);
+  assert.equal(G.mec.length, 1);
+  assert.equal(G.mec[0].fat, 200);
+});

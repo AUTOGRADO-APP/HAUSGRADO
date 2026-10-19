@@ -495,7 +495,31 @@ td .hint.mono{white-space:nowrap}
 /* editor de orçamento: colunas fixas no mínimo para sobrar espaço à descrição */
 table.orc-itens td,table.orc-itens th{padding-left:6px;padding-right:6px}
 table.orc-itens td:first-child .chip,table.orc-itens td.num{white-space:nowrap}
-table.orc-itens td:nth-child(2){min-width:220px}
+table.orc-itens td:nth-child(2){min-width:190px}
+table.orc-itens td.na{color:var(--muted)}
+.it-in.bad,.it-in.bad:hover,table.orc-itens .it-in.bad{border-color:var(--danger);background:var(--input-bg)}
+.it-in.bad:focus{border-color:var(--danger);box-shadow:0 0 0 3px rgba(214,69,69,.18)}
+.it-err{color:var(--danger);font-size:9pt;font-weight:600;padding:3px 8px 0}
+/* notebook e 720p (painel estreito): cada item em duas linhas
+   [tipo | descrição ............ | ×]
+   [qtd | custo | margem | preço | subtotal] */
+@media (min-width:641px) and (max-width:1500px){
+  .tbl-wrap:has(table.orc-itens){overflow:visible}
+  table.orc-itens{display:block;border-spacing:0}
+  table.orc-itens thead{display:none}
+  table.orc-itens tbody{display:grid;gap:8px}
+  table.orc-itens tr{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) auto;gap:4px 8px;align-items:end;
+    background:var(--bg);border:1px solid var(--border);border-radius:1.2rem;padding:8px 10px}
+  table.orc-itens td{display:block;padding:0!important;border:0!important;border-radius:0!important;background:none;min-width:0}
+  table.orc-itens td:nth-child(1){grid-column:1;grid-row:1;align-self:center}
+  table.orc-itens td:nth-child(2){grid-column:2/6;grid-row:1;min-width:0}
+  table.orc-itens td:nth-child(8){grid-column:6;grid-row:1;align-self:start}
+  table.orc-itens td.it-v{grid-row:2}
+  table.orc-itens td.it-v::before{content:attr(data-label);display:block;font-size:7.5pt;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:0 8px 2px;text-align:right}
+  table.orc-itens td.num{text-align:right;padding-bottom:7px!important}
+  table.orc-itens td.na{padding-right:8px!important}
+  table.orc-itens .it-in{background:var(--input-bg);border-color:var(--border)}
+}
 
 /* LCD de dicas */
 .lcd-tick{--lcd-bg:#1a1b19;--lcd-on:#ff7a1a;position:relative;display:flex;align-items:center;gap:10px;width:330px;max-width:32vw;min-height:52px;background:var(--lcd-bg);border-radius:var(--r-control);padding:0 14px 0 12px;
@@ -693,7 +717,7 @@ body:has(.side) .lcd-tick{flex:1 1 auto;width:auto;max-width:none;min-width:260p
   input[type=date].input,input[type=datetime-local].input{min-width:0;width:100%;padding-inline:12px}
 
   /* itens editáveis do orçamento e da compra: cada linha vira um cartão
-     orçamento: [tipo ......... ×] [descrição] [qtd | valor | subtotal]
+     orçamento: [tipo ......... ×] [descrição] [qtd | custo | margem] [preço | subtotal]  (mão de obra: [qtd | preço | subtotal])
      compra:    [descrição .... ×] [qtd | valor | subtotal] */
   .tbl-wrap:has(table.orc-itens),.tbl-wrap:has(table.cp-itens){overflow:visible}
   table.orc-itens,table.cp-itens{display:block;border-spacing:0}
@@ -703,12 +727,17 @@ body:has(.side) .lcd-tick{flex:1 1 auto;width:auto;max-width:none;min-width:260p
     background:var(--bg);border:1px solid var(--border);border-radius:1.2rem;padding:10px 12px}
   table.orc-itens td,table.cp-itens td{display:block;padding:0!important;border:0!important;border-radius:0!important;background:none;min-width:0}
   table.orc-itens td:nth-child(1){grid-column:1/4;grid-row:1;align-self:center}
-  table.orc-itens td:nth-child(6),table.cp-itens td:nth-child(5){grid-column:4;grid-row:1;align-self:start}
+  table.orc-itens td:nth-child(8),table.cp-itens td:nth-child(5){grid-column:4;grid-row:1;align-self:start}
   table.orc-itens td:nth-child(2),table.cp-itens td:nth-child(1){grid-column:1/-1}
   table.orc-itens td:nth-child(2){grid-row:2}
   table.cp-itens td:nth-child(1){grid-column:1/4;grid-row:1}
-  table.orc-itens td:nth-child(5),table.cp-itens td:nth-child(4){grid-column:3/-1}
-  table.orc-itens td:nth-child(n+3):nth-child(-n+5)::before,table.cp-itens td:nth-child(n+2):nth-child(-n+4)::before{
+  table.cp-itens td:nth-child(4){grid-column:3/-1}
+  table.orc-itens tr{grid-template-columns:repeat(3,minmax(0,1fr))}
+  table.orc-itens td:nth-child(1){grid-column:1/3}
+  table.orc-itens td:nth-child(8){grid-column:3;justify-self:end}
+  table.orc-itens tr.peca td.it-sub{grid-column:span 2}
+  table.orc-itens td.na{display:none}
+  table.orc-itens td.it-v::before,table.cp-itens td:nth-child(n+2):nth-child(-n+4)::before{
     content:attr(data-label);display:block;font-size:7.5pt;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:0 8px 2px}
   table.orc-itens td.num,table.cp-itens td.num{text-align:right;padding-bottom:6px!important}
   table.orc-itens .it-in,table.cp-itens .it-in{background:var(--input-bg);border-color:var(--border);min-height:40px}
@@ -882,3 +911,10 @@ a.wf-r:hover{background:var(--bg)}
   .tk{grid-template-columns:28px minmax(0,1fr) auto;gap:10px}.tk-n{display:none}
   .tk-prog{justify-items:start}
 }
+
+/* Entradas: entrada FANTASMA (só master, ajustes da implantação) */
+.chip.ghost{background:transparent;border-style:dashed;color:var(--muted);font-family:var(--font-num);letter-spacing:.04em}
+tr.ghost td{background:repeating-linear-gradient(135deg,transparent 0 8px,var(--border) 8px 9px)}
+.ghost-del{justify-content:flex-end;gap:6px;margin-top:6px;display:flex}
+.sg-fantasma{background:repeating-linear-gradient(135deg,#9aa0a6 0 3px,#c9c4c2 3px 6px)}
+.meter span.sg-fantasma{background:repeating-linear-gradient(135deg,#9aa0a6 0 3px,#c9c4c2 3px 6px)}

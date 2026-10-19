@@ -85,7 +85,7 @@ export default async function GestaoPage({ searchParams }: { searchParams: Promi
   ]);
   const receipts = ((rec.data ?? []) as GReceipt[]).map(r => ({ ...r, total: Number(r.total), difference: Number(r.difference) }));
   const patio = (pat.data ?? []) as GOrder[];
-  const recIds = [...new Set(receipts.map(r => r.service_order_id))];
+  const recIds = [...new Set(receipts.flatMap(r => (r.service_order_id ? [r.service_order_id] : [])))];
   const osIds = [...new Set([...recIds, ...patio.map(o => o.id)])];
   type QAb = QRow & { service_orders: { status: string } | null };
   const abertos = (qAb.data ?? []) as unknown as QAb[];
@@ -185,7 +185,7 @@ export default async function GestaoPage({ searchParams }: { searchParams: Promi
         <section className="panel g-fat">
           <div className="ph">
             <div><h2>Faturamento do mês</h2>
-              <p className="hint" style={{ margin: "4px 0 0" }}>{nm} · recebido nas entradas ({M.n} {s(M.n, "recebimento", "recebimentos")}), dia a dia comparado com {nAnt}</p></div>
+              <p className="hint" style={{ margin: "4px 0 0" }}>{nm} · recebido nas entradas ({M.n} {s(M.n, "recebimento", "recebimentos")}{M.fantasma ? ` + ${brl(M.fantasma)} em entrada fantasma` : ""}), dia a dia comparado com {nAnt}</p></div>
             <Link className="key sm" href={`/financeiro/metas?m=${mes}`}>{metaMes ? "Editar metas" : "Definir metas"}</Link>
           </div>
           <div className="g-fat-body">
