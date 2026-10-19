@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client.ts";
 import { brl, quoteTotals } from "@/lib/rules.ts";
 import { ORC_ST, numBR, parseNum } from "@/lib/labels.ts";
-import { msgOrc, portalLink, waURL } from "@/lib/msgs.ts";
+import { msgOrc, orcPdfLink, portalLink, waURL } from "@/lib/msgs.ts";
 import { copyText, errMsg, sfx, toast } from "@/lib/ui.ts";
 import { ProductPicker, type PickProduct } from "@/components/ProductPicker.tsx";
 import { ServicePicker } from "@/components/orc-servicos.tsx";
@@ -23,8 +23,9 @@ type Patch = Partial<Pick<QItem, "description" | "qty" | "unit_price" | "product
 const toL = (i: QItem): LItem => ({ ...i, qtyTxt: String(i.qty).replace(".", ","), priceTxt: numBR(i.unit_price) || "0" });
 const COLS = "id, kind, description, details, qty, unit_price, product_id, service_id, sku, position";
 
-export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDelete }: {
+export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDelete, pdfSig }: {
   bundle: QuoteBundle; osList: OSOpt[]; produtos: PickProduct[]; servicos: ServOpt[]; hasPassword: boolean; canDelete: boolean;
+  pdfSig: string | null;   // assinatura do link público do PDF (gerada no servidor)
 }) {
   const sb = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -35,6 +36,9 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
   const [modal, setModal] = useState<null | "pecas" | "serv" | "desc">(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [delPend, setDelPend] = useState(false);
+  // anexar o PDF de verdade: compartilhamento nativo (celular e alguns PCs) com o arquivo + a mensagem
+  const [podeAnexar, setPodeAnexar] = useState(false);
+  const [anexo, setAnexo] = useState<null | "gerando" | File>(null);
   const pend = useRef(new Map<string, { patch: Patch; t: ReturnType<typeof setTimeout> }>());
   const valT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputs = useRef(new Map<string, HTMLInputElement>());
@@ -57,6 +61,13 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
       .subscribe();
     return () => { void sb.removeChannel(ch); };
   }, [sb, router, bundle.quote.id]);
+  useEffect(() => {
+    try {
+      setPodeAnexar(typeof navigator.canShare === "function" && navigator.canShare({ files: [new File(["%PDF"], "a.pdf", { type: "application/pdf" })] }));
+    } catch { setPodeAnexar(false); }
+  }, []);
+  // PDF já gerado para compartilhar fica velho quando o orçamento muda
+  useEffect(() => { setAnexo(a => a instanceof File ? null : a); }, [items, q.discount, q.status, validade]);
   useEffect(() => {
     if (!focusId) return;
     inputs.current.get(focusId)?.focus();
@@ -202,6 +213,31 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
     if (q.service_order_id) await sb.from("service_order_history").insert({ service_order_id: q.service_order_id, text: "Orçamento enviado ao cliente pelo WhatsApp" });
     router.refresh();
   }
+  async function enviarArquivo() {
+    if (!c) return toast("Escolha o veículo (O.S.) do orçamento: é ele que define o cliente.", { err: true });
+    let file = anexo instanceof File ? anexo : null;
+    if (!file) {
+      if (anexo === "gerando") return;
+      setAnexo("gerando");
+      await flush();
+      const r = await fetch(`/orcamentos/${q.id}/arquivo`, { cache: "no-store" }).catch(() => null);
+      if (!r?.ok) { setAnexo(null); return toast("Não foi possível gerar o PDF agora. Tente de novo.", { err: true }); }
+      file = new File([await r.blob()], pdfName, { type: "application/pdf" });
+    }
+    try {
+      await navigator.share({ files: [file], text: msg });
+      setAnexo(null);
+      await enviado();
+      sfx("ok");
+    } catch (e) {
+      const nome = (e as { name?: string })?.name;
+      if (nome === "AbortError") { setAnexo(null); return; }   // fechou a janela de compartilhar
+      // alguns celulares só deixam compartilhar logo depois do toque: o PDF fica pronto para o próximo
+      setAnexo(file);
+      if (nome === "NotAllowedError") toast("PDF pronto. Toque de novo em “Enviar PDF como arquivo”.");
+      else toast("Não foi possível abrir o compartilhamento. Use “Enviar orçamento no WhatsApp”.", { err: true });
+    }
+  }
   async function excluir() {
     for (const { t } of pend.current.values()) clearTimeout(t);
     pend.current.clear();
@@ -224,8 +260,10 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
     number: q.number, plate: q.plate, discount: q.discount, validity_days: parseInt(validade) || 0, customer_name: c?.name || "",
     items: items.map(i => ({ description: i.description, qty: i.qty, unit_price: i.unit_price })),
     link: o ? portalLink(o.portal_token, shop.portal_base_url) : null,
+    pdf: pdfSig ? orcPdfLink(q.id, pdfSig, shop.portal_base_url) : null,
   });
   const wa = c ? waURL(c.phone, msg) : null;
+  const pdfName = `Orcamento-${q.number}${q.plate ? "-" + q.plate : ""}.pdf`;
 
   return (
     <div className="split">
@@ -292,8 +330,12 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
             <div className="muted">{q.plate ? `Placa ${q.plate} · ` : ""}{c?.name || "Sem cliente"}</div>
             <a className="key wa" {...(wa ? { href: wa, target: "_blank", rel: "noopener" } : { "aria-disabled": true })}
               onClick={e => { if (!wa) { e.preventDefault(); return; } void enviado(); }}>Enviar orçamento no WhatsApp</a>
+            <span className="hint" style={{ marginTop: -4 }}>{pdfSig ? "A mensagem leva o link do PDF do orçamento" : "A mensagem leva os itens e o total"}{o ? " e o link de acompanhamento." : "."}</span>
+            {podeAnexar && c && <button className="key" disabled={anexo === "gerando"} onClick={() => void enviarArquivo()}>
+              {anexo === "gerando" ? "Gerando PDF…" : anexo ? "Compartilhar PDF agora" : "Enviar PDF como arquivo"}</button>}
             <button className="key" onClick={() => void copyText(msg)}>Copiar texto do orçamento</button>
             <button className="key" onClick={() => void go(`/orcamentos/${q.id}/pdf`)}>Gerar PDF do orçamento</button>
+            <button className="key" onClick={() => void flush().then(() => { location.href = `/orcamentos/${q.id}/arquivo?baixar`; })}>Baixar PDF</button>
             <button className="key" onClick={() => void guia()}>Gerar guia de serviço</button>
           </div>
         </section>

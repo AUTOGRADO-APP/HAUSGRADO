@@ -45,7 +45,7 @@ export default async function OrcPdfPage({ params }: { params: Promise<{ id: str
     <main id="view">
       <style>{docCss(footer)}</style>
       <div className="stack" style={{ gap: 22 }}>
-        <PrintBar title={`PDF do orçamento nº ${r.number}`} back={`/orcamentos/${r.id}`}
+        <PrintBar title={`PDF do orçamento nº ${r.number}`} back={`/orcamentos/${r.id}`} pdf={`/orcamentos/${r.id}/arquivo?baixar`}
           hint="Cliente, veículo, itens com peças e mão de obra, desconto, total, validade e espaço para a assinatura de aprovação." />
         <article className="doc-a4" aria-label={`Orçamento nº ${r.number}`}>
           {/* cabeçalho: marca grande + bloco do número */}

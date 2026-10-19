@@ -1,5 +1,6 @@
 import "server-only";
 // Carrega um orçamento com itens, cliente, O.S. ligada e dados da oficina (editor, PDF e guia).
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server.ts";
 
 export interface QItem {
@@ -22,8 +23,9 @@ export interface QuoteBundle {
   shop: { name: string; portal_base_url: string | null };
 }
 
-export async function loadQuote(id: string): Promise<QuoteBundle | null> {
-  const sb = await createClient();
+/** `client`: por padrão o do usuário logado (RLS); o link público do PDF passa o de service_role. */
+export async function loadQuote(id: string, client?: SupabaseClient): Promise<QuoteBundle | null> {
+  const sb = client ?? await createClient();
   const { data: q } = await sb.from("quotes").select("*").eq("id", id).maybeSingle();
   if (!q) return null;
   const quote = { ...q, discount: Number(q.discount) || 0 } as QQuote;
@@ -33,7 +35,7 @@ export async function loadQuote(id: string): Promise<QuoteBundle | null> {
     quote.service_order_id
       ? sb.from("service_orders").select("id, number, plate, make, model, year, color, km, fuel_level, entry_type, status, entered_at, exited_at, customer_complaint, portal_token, technicians(name)").eq("id", quote.service_order_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    sb.from("shops").select("name, portal_base_url").single(),
+    sb.from("shops").select("name, portal_base_url").eq("id", q.shop_id).single(),
   ]);
   let o: QOS | null = null;
   if (os) {

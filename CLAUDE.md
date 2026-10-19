@@ -655,6 +655,7 @@ O menu tem o item **Financeiro** com três subpáginas.
 - No protótipo há uma base simulada com 11 placas (ex.: `ABC1D23`, `PXT9H41`, `LMN2B56`, `DEF4G67`).
 
 ### 8.2 WhatsApp
+- O PDF do orçamento é gerado no servidor com `pdf-lib` (`src/lib/orc-pdf.ts`): vai como link na mensagem e, onde o navegador permite (celular), também como arquivo anexo pelo compartilhamento nativo (botão "Enviar PDF como arquivo").
 - Por enquanto, só com links `https://wa.me/55{DDD}{número}?text={mensagem}`, abertos em nova aba. O sistema **não** envia mensagens sozinho; a pessoa toca em enviar. Uma integração com a WhatsApp Business API pode vir no futuro.
 - Templates (manter o texto):
 
@@ -680,6 +681,9 @@ Desconto: −{desconto}            ← só se houver
 
 *Total: {total}*
 Validade: {dias} dias.
+
+Orçamento em PDF:                ← link público assinado /c/orcamento/{id}/{assinatura} (src/lib/orc-link.ts)
+{link do PDF}
 
 Você pode aprovar pelo link de acompanhamento:
 {link do portal}

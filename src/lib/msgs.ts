@@ -8,9 +8,16 @@ export function waURL(tel: string | null | undefined, msg: string) {
   return `https://wa.me/${d}?text=${encodeURIComponent(msg)}`;
 }
 
+const siteBase = (base?: string | null) =>
+  (base || process.env.NEXT_PUBLIC_SITE_URL || (typeof location !== "undefined" ? location.origin : "")).replace(/[#/]+$/, "");
+
 export function portalLink(token: string, base?: string | null) {
-  const b = (base || process.env.NEXT_PUBLIC_SITE_URL || (typeof location !== "undefined" ? location.origin : "")).replace(/[#/]+$/, "");
-  return `${b}/c/${token}`;
+  return `${siteBase(base)}/c/${token}`;
+}
+
+/** Link público do PDF do orçamento (a assinatura vem do servidor, orc-link.ts). */
+export function orcPdfLink(quoteId: string, sig: string, base?: string | null) {
+  return `${siteBase(base)}/c/orcamento/${quoteId}/${sig}`;
 }
 
 export function msgLemb(a: { date: string; time: string; plate: string | null; reason: string | null; customer_name: string }, oficina: string) {
@@ -22,8 +29,8 @@ export function msgOS(o: { make: string | null; model: string | null; plate: str
   return `Olá, ${primeiroNome(o.customer_name)}! Aqui é da ${oficina}.\n\nSeu veículo ${o.make || ""} ${o.model || ""} — placa ${o.plate} — está registrado na OS nº ${o.number}.\n\nAcompanhe o serviço em tempo real, com fotos e vídeos:\n${o.link}\n\nSenha de acesso: o seu número de celular com DDD (somente números).`;
 }
 
-export function msgOrc(r: { number: number; plate: string | null; discount: number; validity_days: number; customer_name: string; items: { description: string; qty: number; unit_price: number }[]; link?: string | null }) {
+export function msgOrc(r: { number: number; plate: string | null; discount: number; validity_days: number; customer_name: string; items: { description: string; qty: number; unit_price: number }[]; link?: string | null; pdf?: string | null }) {
   const sub = r.items.reduce((a, i) => a + i.qty * i.unit_price, 0);
   const l = r.items.filter(i => !isBlankItem(i)).map(i => `• ${i.description} (${i.qty}x) — ${brl(i.qty * i.unit_price)}`).join("\n");
-  return `Olá, ${primeiroNome(r.customer_name)}! Segue o orçamento nº ${r.number} para o veículo placa ${r.plate || ""}:\n\n${l}\n${+r.discount ? `Desconto: −${brl(+r.discount)}\n` : ""}\n*Total: ${brl(sub - (+r.discount || 0))}*\nValidade: ${r.validity_days} dias.\n\n${r.link ? `Você pode aprovar pelo link de acompanhamento:\n${r.link}\nSenha: seu celular com DDD.` : ""}`;
+  return `Olá, ${primeiroNome(r.customer_name)}! Segue o orçamento nº ${r.number} para o veículo placa ${r.plate || ""}:\n\n${l}\n${+r.discount ? `Desconto: −${brl(+r.discount)}\n` : ""}\n*Total: ${brl(sub - (+r.discount || 0))}*\nValidade: ${r.validity_days} dias.\n\n${r.pdf ? `Orçamento em PDF:\n${r.pdf}\n\n` : ""}${r.link ? `Você pode aprovar pelo link de acompanhamento:\n${r.link}\nSenha: seu celular com DDD.` : ""}`;
 }

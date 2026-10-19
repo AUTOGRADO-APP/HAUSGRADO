@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient, getMe } from "@/lib/supabase/server.ts";
 import { canDelete } from "@/lib/permissions.ts";
 import type { PickProduct } from "@/components/ProductPicker.tsx";
+import { orcSig } from "@/lib/orc-link.ts";
 import { loadQuote } from "../data.ts";
 import { Editor, type OSOpt, type ServOpt } from "./Editor.tsx";
 
@@ -37,7 +38,7 @@ export default async function OrcamentoPage({ params }: { params: Promise<{ id: 
   const servicos = ((servs ?? []) as ServOpt[]).map(s => ({ ...s, price: Number(s.price) || 0 }));
   return (
     <main id="view">
-      <Editor bundle={b} osList={osList} produtos={produtos} servicos={servicos} hasPassword={!!(pw as { active?: boolean } | null)?.active} canDelete={canDelete(me?.role)} />
+      <Editor bundle={b} osList={osList} produtos={produtos} servicos={servicos} hasPassword={!!(pw as { active?: boolean } | null)?.active} canDelete={canDelete(me?.role)} pdfSig={orcSig(b.quote.id)} />
     </main>
   );
 }
