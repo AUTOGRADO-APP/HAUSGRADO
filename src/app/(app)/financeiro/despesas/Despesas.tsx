@@ -23,9 +23,9 @@ function toLinha(e: ExpenseRow): Linha {
   return { ...base, kind: "manual", titulo: e.description || e.category, extra: "" };
 }
 
-export function Despesas({ list, editId }: { list: ExpenseRow[]; editId: string | null }) {
+export function Despesas({ list, editId, cat0 = "" }: { list: ExpenseRow[]; editId: string | null; cat0?: string }) {
   const router = useRouter();
-  const [st, setSt] = useState(() => { const [de, ate] = periodo("mes"); return { de, ate, per: "mes", busca: "", cat: "" }; });
+  const [st, setSt] = useState(() => { const [de, ate] = periodo("mes"); return { de, ate, per: "mes", busca: "", cat: cat0 }; });
   const [D, setD] = useState<Form>(novaDesp);
   const [pend, setPend] = useState(false);
   const [busy, setBusy] = useState(false);

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeAtencao, computeGestao, quoteByOrder, serieMes, type GOrder, type GQuote, type GReceipt } from "./gestao.ts";
+import { computeAtencao, computeGestao, quoteByOrder, resultadoMes, serieMes, type GOrder, type GQuote, type GReceipt } from "./gestao.ts";
 
 const os = (id: string, tec: string | null, extra: Partial<GOrder> = {}): GOrder => ({
   id, status: "finalizado", entry_type: "servico", entered_at: "2026-10-01T09:00:00-03:00", exited_at: "2026-10-03T09:00:00-03:00",
@@ -101,6 +101,30 @@ test("gestão: precisa de atenção", () => {
   assert.equal(A.parados, 1);
   assert.deepEqual(A.entrega, { n: 2, v: 600 });
   assert.deepEqual(A.vencidas, { n: 2, v: 100.5 });
+});
+
+test("gestão: resultado do mês pelo regime de caixa (despesas pagas no mês)", () => {
+  const R = resultadoMes(10000, [
+    { category: "Taxa de pagamento", amount: 250, paid_on: "2026-10-05" },
+    { category: "Comissão", amount: 400, paid_on: "2026-10-10" },
+    { category: "Compra de mercadorias", amount: 3000, paid_on: "2026-10-12" },
+    { category: "Aluguel", amount: 2500, paid_on: "2026-10-05" },
+    { category: "Energia", amount: 600, paid_on: "2026-10-20" },
+    { category: "Antecipação de lucros", amount: 1000, paid_on: "2026-10-15" },   // retirada: fora da conta
+    { category: "Internet", amount: 150, paid_on: null },                         // não paga
+    { category: "Água", amount: 90, paid_on: "2026-09-30" },                       // outro mês
+  ], "2026-10");
+  assert.equal(R.taxas, 250);
+  assert.equal(R.comissoes, 400);
+  assert.equal(R.compras, 3000);
+  assert.equal(R.outras, 3100);
+  assert.deepEqual(R.outrasCats.map(c => c.n), ["Aluguel", "Energia"]);
+  assert.equal(R.retiradas, 1000);
+  assert.equal(R.resultado, 3250);
+  assert.equal(R.margem, 33);
+  // mês corrente comparado até o mesmo dia
+  assert.equal(resultadoMes(10000, [{ category: "Energia", amount: 600, paid_on: "2026-10-20" }], "2026-10", 19).outras, 0);
+  assert.equal(resultadoMes(0, [], "2026-10").margem, null);
 });
 
 test("gestão: entrada fantasma soma no faturamento, mas não conta como O.S. nem vai para mecânico", () => {

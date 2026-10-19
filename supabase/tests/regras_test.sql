@@ -1,7 +1,7 @@
 -- Testes das regras do banco (RLS, pagamento, desconto, compras, comissões, portal).
 -- Rodar SÓ no banco LOCAL (supabase start → supabase db reset), nunca na produção: cria usuários de teste.
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/regras_test.sql
--- Resultado esperado: linhas T1..T68 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
+-- Resultado esperado: linhas T1..T71 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
 
 \set ON_ERROR_STOP 0
 insert into auth.users (id, email) values ('11111111-1111-4111-8111-111111111111','master@x'),('22222222-2222-4222-8222-222222222222','admin@x'),('33333333-3333-4333-8333-333333333333','atend@x'),('44444444-4444-4444-8444-444444444444','outro@x');
@@ -177,6 +177,18 @@ update customers set name = 'X' where id = '00000000-0000-4000-8000-0000000000c1
 insert into customers (name, phone) values ('Cliente do mecânico', '61900001111');
 select 'T54 mecânico cadastra cliente mas não edita (1, Mariana Souza)' t, (select count(*) from customers where name = 'Cliente do mecânico'), (select name from customers where id = '00000000-0000-4000-8000-0000000000c1');
 delete from service_orders where id = '00000000-0000-4000-8000-0000000000e1';           -- não apaga (RLS)
+-- ===== SERVIÇOS A EXECUTAR (T69–T71): o mecânico vê os itens sem preço e marca feito =====
+select 'T69 mecânico vê os itens do orçamento aprovado sem preço (1, Check list viagem)' t, count(*), min(description) from os_tasks('00000000-0000-4000-8000-0000000000e3');
+select set_task_done((select id from os_tasks('00000000-0000-4000-8000-0000000000e3') limit 1), true);
+select 'T70 marca feito com autor e histórico (1, Mecânico, 1)' t, (select count(*) from quote_item_done where service_order_id = '00000000-0000-4000-8000-0000000000e3'),
+  (select done_by_name from os_tasks('00000000-0000-4000-8000-0000000000e3') limit 1),
+  (select count(*) from service_order_history where service_order_id = '00000000-0000-4000-8000-0000000000e3' and text = 'Feito: Check list viagem');
+select set_task_done((select id from os_tasks('00000000-0000-4000-8000-0000000000e3') limit 1), false);
+select set_task_done((select id from os_tasks('00000000-0000-4000-8000-0000000000e1') limit 1), true); -- falha (orçamento enviado, não aprovado)
+insert into quote_item_done (quote_item_id, shop_id, service_order_id)
+  select id, '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000e1' from os_tasks('00000000-0000-4000-8000-0000000000e1') limit 1; -- falha (RLS: só pela função)
+select 'T71 desmarca e não grava fora da função (0, 0)' t, (select count(*) from quote_item_done where service_order_id = '00000000-0000-4000-8000-0000000000e3'),
+  (select count(*) from quote_item_done where service_order_id = '00000000-0000-4000-8000-0000000000e1');
 reset role;
 set role authenticated; set request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
 select 'T55 atend vê compras e fornecedores, não despesas (true, true, 0)' t, (select count(*) > 0 from purchases), (select count(*) > 0 from suppliers), (select count(*) from expenses);

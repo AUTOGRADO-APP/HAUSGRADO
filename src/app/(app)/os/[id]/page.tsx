@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient, getMe } from "@/lib/supabase/server.ts";
 import { quoteTotals, type ShopFees } from "@/lib/rules.ts";
-import { OSDetail, type OSData, type OSRecord, type OSPhoto, type OSHist, type OSQuote, type OSTech } from "./OSDetail.tsx";
+import { OSDetail, type OSData, type OSRecord, type OSPhoto, type OSHist, type OSQuote, type OSTech, type OSTask } from "./OSDetail.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     );
   }
 
-  const [{ data: photos }, { data: records }, { data: hist }, { data: techs }, { data: quotes }, { data: shop }, { data: pw }, { data: total }] = await Promise.all([
+  const [{ data: photos }, { data: records }, { data: hist }, { data: techs }, { data: quotes }, { data: shop }, { data: pw }, { data: total }, { data: tasks }] = await Promise.all([
     sb.from("service_order_photos").select("id, position, storage_path").eq("service_order_id", id),
     sb.from("service_order_records").select("id, tab, storage_path, mime, file_name, description, created_at").eq("service_order_id", id).order("created_at"),
     sb.from("service_order_history").select("id, text, created_by_name, created_at").eq("service_order_id", id).order("created_at"),
@@ -31,6 +31,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     sb.from("shops").select("name, portal_base_url, fee_debit_pct, fee_pix_pct, fee_credit_pct").single(),
     sb.rpc("discount_password_status"),
     sb.rpc("os_total", { p_os: id }),
+    sb.rpc("os_tasks", { p_os: id }),
   ]);
 
   // URLs assinadas (1 h) das fotos e mídias
@@ -56,6 +57,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     checklist: (os.checklist ?? {}) as Record<string, boolean>, portal_token: os.portal_token,
     customer_name: c?.name ?? "", customer_phone: c?.phone ?? "",
   };
+  // desde quando está na etapa atual (mesma regra do Quadro: último "Status: …" do histórico, senão a entrada)
+  const statusSince = ((hist ?? []) as OSHist[]).filter(h => h.text.startsWith("Status:")).map(h => h.created_at).sort().pop() ?? os.entered_at;
   const techList = ((techs ?? []) as OSTech[]).filter(t => t.active || t.id === os.technician_id);
 
   return (
@@ -66,7 +69,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         history={(hist ?? []) as OSHist[]} techs={techList} quote={quote}
         shopName={s?.name ?? "Autogrado"} portalBase={s?.portal_base_url ?? null}
         fees={{ fee_debit_pct: Number(s?.fee_debit_pct ?? 0), fee_pix_pct: Number(s?.fee_pix_pct ?? 0), fee_credit_pct: (s?.fee_credit_pct ?? []).map(Number) }}
-        hasPassword={!!(pw as { active?: boolean } | null)?.active} total={Number(total ?? 0)} />
+        hasPassword={!!(pw as { active?: boolean } | null)?.active} total={Number(total ?? 0)}
+        tasks={((tasks ?? []) as OSTask[]).map(t => ({ ...t, qty: Number(t.qty) }))} statusSince={statusSince} />
     </main>
   );
 }
