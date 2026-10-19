@@ -10,7 +10,8 @@ import { brl } from "@/lib/rules.ts";
 import { PAPEIS, dataBR, iniciais, primeiroNome, ymd } from "@/lib/labels.ts";
 import { msgLemb, waURL } from "@/lib/msgs.ts";
 import { qtdBR } from "@/lib/estoque.ts";
-import { poseFor } from "@/lib/sprite.ts";
+import { POSE, poseFor } from "@/lib/sprite.ts";
+import { mmss, useBalanco, useRestante } from "@/lib/balanco.ts";
 import { copyText, errMsg, getTheme, setSom, setTheme, sfx, somOn, toast } from "@/lib/ui.ts";
 import type { ShellData, ShellBill } from "@/lib/types.ts";
 import { canAccess, isFin } from "@/lib/permissions.ts";
@@ -273,7 +274,9 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
   const pend = data.amanha.filter(a => !a.reminder_sent_at);
   const nBell = pend.length + (fin ? data.contas.length + data.estoqueBaixo.length : 0);
   const venc = fin && data.contas.some(c => c.due_date < hoje);
-  const pose = poseFor(path);
+  const fimBal = useBalanco(), restBal = useRestante(fimBal);
+  const balanco = fimBal != null && path.startsWith("/produtos");
+  const pose = balanco ? POSE.balanco : poseFor(path);
   const cur = (href: string) => path === href || path.startsWith(href + "/");
   const finOpen = path.startsWith("/financeiro");
 
@@ -290,7 +293,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
               <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Nova O.S.
             </Link>
             <Lcd data={data} />
-            <MascotButton pose={pose} />
+            <MascotButton pose={pose} fixa={balanco ? `Balanço · ${mmss(restBal)}` : undefined} />
             <button className={`bell ${nBell ? "hot" : ""} ${lemb ? "on" : ""}`} title="Lembretes"
               aria-label={`Lembretes: ${pend.length} agendamento(s)${fin ? `, ${data.contas.length} conta(s) a pagar, ${data.estoqueBaixo.length} produto(s) com estoque baixo` : ""}`}
               onClick={() => { setLemb(v => { if (!v) { sfx("bell"); scrollTo(0, 0); } return !v; }); }}>

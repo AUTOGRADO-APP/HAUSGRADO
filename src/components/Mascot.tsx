@@ -18,8 +18,8 @@ export function MascotImg({ pose, w = 80 }: { pose: string; w?: number }) {
     : <span style={{ display: "inline-block", width: w, height: h }} />;
 }
 
-/** Botão do mascote: ao clicar mostra um balão com uma frase da página e late. */
-export function MascotButton({ pose }: { pose: string }) {
+/** Botão do mascote: ao clicar mostra um balão com uma frase da página e late. `fixa` deixa um balão sempre visível. */
+export function MascotButton({ pose, fixa }: { pose: string; fixa?: string }) {
   const [fala, setFala] = useState<string | null>(null);
   const t = useRef<ReturnType<typeof setTimeout> | null>(null);
   const l = FALAS[pose] || FALAS.acena;
@@ -27,7 +27,7 @@ export function MascotButton({ pose }: { pose: string }) {
     <button className="mascot" aria-label="Mascote Hausgrado" title={l[0]}
       onClick={() => { setFala(l[Math.floor(Math.random() * l.length)]); sfx("au"); if (t.current) clearTimeout(t.current); t.current = setTimeout(() => setFala(null), 3200); }}>
       <MascotImg pose={pose} />
-      {fala && <span className="bubble">{fala}</span>}
+      {fala ? <span className="bubble">{fala}</span> : fixa ? <span className="bubble fixa" role="status">{fixa}</span> : null}
     </button>
   );
 }

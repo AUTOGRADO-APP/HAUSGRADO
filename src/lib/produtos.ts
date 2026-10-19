@@ -39,3 +39,10 @@ export function prodResumo(p: ProdCarac): string {
   }
   return "";
 }
+
+/** NCM: 8 dígitos, exibido 0000.00.00 (aceita digitação parcial). */
+export function fmtNcm(v: string | null | undefined): string {
+  const d = digits(v).slice(0, 8);
+  return [d.slice(0, 4), d.slice(4, 6), d.slice(6, 8)].filter(Boolean).join(".");
+}
+export const ncmOk = (v: string | null | undefined) => { const d = digits(v); return !d || d.length === 8; };
