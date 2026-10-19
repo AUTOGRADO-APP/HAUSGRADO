@@ -1,9 +1,10 @@
 "use client";
 // Mascote: doberman em pixel art (40×32), desenhado em canvas. Portado do protótipo (sprite()).
 const MP: Record<string, string> = {K:'#151010',B:'#2a201d',b:'#45352f',T:'#b8652a',t:'#dd8e44',W:'#ffffff',E:'#f6f1ea',N:'#0b0808',P:'#e2667a',
-  BL:'#2f5fa8',bl:'#4a7bc8',GR:'#7f878f',gr:'#c3c9ce',WD:'#6e4325',wd:'#94603a',SC:'#1d2730',OR:'#FF5C00',or:'#c94a00',Y:'#f2c230',R:'#d64545',G:'#2FAE60',PA:'#f7f3ea',LC:'#a9b892',GD:'#c9a15a',gd:'#a8803e'};
+  BL:'#2f5fa8',bl:'#4a7bc8',GR:'#7f878f',gr:'#c3c9ce',WD:'#6e4325',wd:'#94603a',SC:'#1d2730',OR:'#FF5C00',or:'#c94a00',Y:'#f2c230',R:'#d64545',G:'#2FAE60',PA:'#f7f3ea',LC:'#a9b892',GD:'#c9a15a',gd:'#a8803e',
+  DN:'#3f6ea6',dn:'#2b5080',CB:'#c99556',cb:'#9a6a33',TP:'#e8cf9c'};
 
-export const POSE: Record<string, string> = {gestao:'gestao',quadro:'mecanico',os:'mecanico',pasta:'papel',agenda:'agenda',clientes:'acena',orcamentos:'orcamento',orcpdf:'papel',guiapdf:'prancheta',historico:'lupa',comissoes:'grana',config:'obra',entrada:'prancheta',login:'acena',produtos:'oleo',servcat:'mecanico',fin_entradas:'grana',fin_saidas:'orcamento',fin_compra:'orcamento',fin_cal:'agenda',fin_desp:'orcamento',fin_forn:'acena',fin_metas:'grana'};
+export const POSE: Record<string, string> = {gestao:'gestao',quadro:'mecanico',os:'mecanico',pasta:'papel',agenda:'agenda',clientes:'acena',orcamentos:'orcamento',orcpdf:'papel',guiapdf:'prancheta',historico:'lupa',comissoes:'grana',config:'obra',entrada:'prancheta',login:'acena',produtos:'oleo',servcat:'mecanico',fin_entradas:'grana',fin_saidas:'orcamento',fin_compra:'orcamento',fin_cal:'agenda',fin_desp:'orcamento',fin_forn:'acena',fin_metas:'grana',balanco:'balanco'};
 export const FALAS: Record<string, string[]> = {gestao:['Fechando as contas do mês. Não me distraia!','Ticket médio subindo? Au au!','Calculadora na pata, café na mesa.'],
   mecanico:['Bora tirar esses carros do pátio!','Chave 10 na mão, cadê o próximo?','Carro parado é carro triste. Au!'],
   agenda:['Amanhã tem cliente, já mandou o lembrete?','Agenda cheia, rabo abanando!'],
@@ -14,7 +15,8 @@ export const FALAS: Record<string, string[]> = {gestao:['Fechando as contas do m
   grana:['Comissão é bom e todo mundo gosta!','Au au! Dia de pagamento?'],
   obra:['Mexendo nas configurações. Cuidado aí!','Capacete na cabeça, segurança em primeiro lugar.'],
   prancheta:['Fotos de todos os lados, hein!','Checklist primeiro, chave depois.'],
-  oleo:['5W30, 0W20… eu sei de cor!','Estoque organizado, oficina feliz. Au!']};
+  oleo:['5W30, 0W20… eu sei de cor!','Estoque organizado, oficina feliz. Au!'],
+  balanco:['Contando caixa por caixa!','Uma, duas, três... anotado!']};
 
 const cache: Record<string, string> = {};
 export function sprite(pose: string, blink = false): string {
@@ -24,7 +26,7 @@ export function sprite(pose: string, blink = false): string {
   const blob = (X: number, Y: number, w: number, h: number, f: string) => { r(X+1,Y,w-2,h,'K'); r(X,Y+1,w,h-2,'K'); r(X+1,Y+1,w-2,h-2,f); };
   const ear = (X0: number, dir: number) => { const rows=[[1,1],[1,2],[0,3],[0,4],[0,4],[0,4],[0,5]]; rows.forEach(([o,w],y)=>{const xs=dir>0?X0+o:X0-o-w+1;r(xs-1,y,w+2,1,'K')}); rows.forEach(([o,w],y)=>{if(y===0)return;const xs=dir>0?X0+o:X0-o-w+1;r(xs,y,w,1,'B')}); [[2,1],[3,2],[4,2]].forEach(([y,w])=>{r(dir>0?X0+1:X0-w,y,w,1,'T')}); };
   const glasses = () => { [[13,7],[22,7]].forEach(([gx,gy])=>{r(gx,gy,5,1,'gr');r(gx,gy+4,5,1,'gr');r(gx,gy,1,5,'gr');r(gx+4,gy,1,5,'gr')}); r(18,8,4,1,'gr'); };
-  const happy = ['acena','grana','mecanico','agenda'].includes(pose);
+  const happy = ['acena','grana','mecanico','agenda','balanco'].includes(pose);
   if(pose==='comissoes'||pose==='grana'){blob(29,19,10,13,'GD');r(32,18,4,2,'WD');r(33,22,1,7,'G');r(32,23,3,1,'G');r(32,25,3,1,'G');r(32,27,3,1,'G');p(31,24,'G');p(35,26,'G');
     [[1,29],[1,26],[2,23]].forEach(([cx,cy])=>{blob(cx,cy,7,3,'Y');r(cx+2,cy+1,3,1,'gd')})}
   if(pose==='lupa'){blob(27,23,12,9,'wd');r(29,25,8,3,'PA');r(31,26,4,1,'GR')}
@@ -60,6 +62,18 @@ export function sprite(pose: string, blink = false): string {
     blob(2,24,8,8,'GR');r(3,25,6,6,'gr');r(4,27,4,1,'GR')}
   if(pose==='prancheta'){blob(13,19,13,13,'wd');r(15,21,9,10,'PA');r(17,18,5,3,'GR');[[16,23],[16,26],[16,29]].forEach(([a,b2])=>{p(a,b2+1,'G');p(a+1,b2+2,'G');p(a+2,b2+1,'G');p(a+3,b2,'G');r(a+5,b2+1,4,1,'gr')});
     r(15,17,10,1,'K');blob(9,22,5,4,'T')}
+  if(pose==='balanco'){
+    // macacão jeans: peito com alças e botões, bolso e costura; pernas embaixo
+    r(15,22,10,9,'DN');r(17,20,6,3,'DN');r(16,17,2,5,'DN');r(22,17,2,5,'DN');p(16,17,'dn');p(23,17,'dn');p(17,21,'Y');p(22,21,'Y');
+    r(18,23,4,3,'dn');r(18,23,4,1,'DN');p(19,25,'Y');p(20,25,'Y');r(20,27,1,4,'dn');r(15,28,3,1,'dn');r(22,28,3,1,'dn');
+    // prancheta na pata direita, com itens já conferidos
+    blob(27,14,11,14,'wd');r(29,16,7,10,'PA');r(30,13,5,3,'GR');r(31,14,3,1,'gr');
+    [[30,18],[30,21]].forEach(([a,b2])=>{p(a,b2+1,'G');p(a+1,b2+2,'G');p(a+2,b2+1,'G');r(a+3,b2+1,3,1,'gr')});r(30,24,1,1,'gr');r(33,24,3,1,'gr');
+    blob(25,20,4,4,'T');
+    // pilha de caixas na frente: duas embaixo, uma em cima
+    const cx=(X:number,Y:number,w:number,h:number)=>{blob(X,Y,w,h,'CB');r(X+1,Y+1,w-2,1,'cb');r(X+Math.floor(w/2)-1,Y+1,2,h-2,'TP')};
+    cx(1,24,10,8);cx(10,25,10,7);cx(4,18,9,7);
+  }
   return cache[key] = c.toDataURL();
 }
 

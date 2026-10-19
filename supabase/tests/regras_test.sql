@@ -1,7 +1,7 @@
 -- Testes das regras do banco (RLS, pagamento, desconto, compras, comissões, portal).
 -- Rodar SÓ no banco LOCAL (supabase start → supabase db reset), nunca na produção: cria usuários de teste.
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/regras_test.sql
--- Resultado esperado: linhas T1..T34 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
+-- Resultado esperado: linhas T1..T44 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
 
 \set ON_ERROR_STOP 0
 insert into auth.users values ('11111111-1111-4111-8111-111111111111','master@x'),('22222222-2222-4222-8222-222222222222','admin@x'),('33333333-3333-4333-8333-333333333333','atend@x'),('44444444-4444-4444-8444-444444444444','outro@x');
@@ -86,8 +86,15 @@ reset role;
 set role authenticated; set request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
 update products set stock_qty = 50 where sku is not null; -- falha (só por movimentação)
 insert into stock_movements (shop_id, product_id, qty, kind) select shop_id, id, 5, 'ajuste' from products limit 1; -- falha (RLS)
+select adjust_stock((select id from products order by name limit 1), 4, 'Inventário'); -- falha (balanço desligado)
+select 'T42 balanço com senha errada (null)' t, start_stock_count('errada');
+select 'T43 balanço ativo por 60 min (t)' t, start_stock_count('1234') between now() + interval '59 minutes' and now() + interval '61 minutes';
 select 'T25 atend ajusta inventário (+4 → 4)' t, adjust_stock((select id from products order by name limit 1), 4, 'Inventário');
 select adjust_stock((select id from products order by name limit 1), 2, ''); -- falha (sem motivo)
+select end_stock_count();
+select 'T44 balanço encerrado (null)' t, stock_count_until();
+select adjust_stock((select id from products order by name limit 1), 1, 'Inventário'); -- falha (balanço encerrado)
+update products set ncm = '1234' where sku is not null; -- falha (NCM com 8 dígitos)
 reset role;
 
 set role authenticated; set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
