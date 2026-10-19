@@ -1,7 +1,7 @@
 -- Testes das regras do banco (RLS, pagamento, desconto, compras, comissões, portal).
 -- Rodar SÓ no banco LOCAL (supabase start → supabase db reset), nunca na produção: cria usuários de teste.
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/regras_test.sql
--- Resultado esperado: linhas T1..T63 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
+-- Resultado esperado: linhas T1..T68 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
 
 \set ON_ERROR_STOP 0
 insert into auth.users (id, email) values ('11111111-1111-4111-8111-111111111111','master@x'),('22222222-2222-4222-8222-222222222222','admin@x'),('33333333-3333-4333-8333-333333333333','atend@x'),('44444444-4444-4444-8444-444444444444','outro@x');
@@ -202,23 +202,47 @@ select 'T59 master exclui cliente com O.S. e orçamento; veículo fica sem dono 
   (select count(*) from quotes where id = '00000000-0000-4000-8000-0000000000f3'), (select customer_id is null from vehicles where id = '00000000-0000-4000-8000-0000000000d3');
 reset role;
 
--- ===== ENTRADA FANTASMA (T60–T63) =====
+-- ===== MARGEM MÍNIMA DE PEÇAS (20261019140000) =====
+set role authenticated; set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
+update shops set min_part_margin_pct = 5 where id = '00000000-0000-4000-8000-000000000001';  -- não altera (só master)
+select 'T60 admin não muda a margem mínima (0.00)' t, min_part_margin_pct from shops where id = '00000000-0000-4000-8000-000000000001';
+reset role;
+set role authenticated; set request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
+update shops set min_part_margin_pct = 30 where id = '00000000-0000-4000-8000-000000000001';
+select 'T61 master define 30% (30.00; preço mínimo de custo 100 = 142.86; custo 70 = 100.00)' t, min_part_margin_pct, min_part_price(100, 30), min_part_price(70, 30) from shops where id = '00000000-0000-4000-8000-000000000001';
+insert into quotes (id, status) values ('00000000-0000-4000-8000-0000000000f9', 'rascunho');
+reset role;
+set role authenticated; set request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
+insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'peca', 'Abaixo', 100, 142.85);  -- falha
+insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'peca', 'No limite', 100, 142.86);
+insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'peca', 'Garantia', 100, 0);
+insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'mao', 'Mão de obra', 100, 10);
+select 'T62 atendente: peça abaixo do mínimo barrada; no limite, R$ 0 e mão de obra passam (3: Garantia, Mão de obra, No limite)' t, count(*), string_agg(description, ', ' order by description) from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9';
+update quote_items set unit_cost = 120 where quote_id = '00000000-0000-4000-8000-0000000000f9' and description = 'No limite';  -- falha (custo sobe, preço fica abaixo)
+update quote_items set description = 'No limite!' where quote_id = '00000000-0000-4000-8000-0000000000f9' and description = 'No limite';
+select 'T63 custo maior barrado; editar só a descrição passa (100.00, 142.86, No limite!)' t, unit_cost, unit_price, description from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9' and kind = 'peca' and unit_price > 0;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
+update quote_items set unit_price = 120 where quote_id = '00000000-0000-4000-8000-0000000000f9' and kind = 'peca' and unit_price > 0;  -- falha (nem o master)
+select 'T64 master também não passa da margem mínima (142.86)' t, unit_price from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9' and kind = 'peca' and unit_price > 0;
+
+-- ===== ENTRADA FANTASMA (T65–T68) =====
 set role authenticated; set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
 select add_ghost_receipt(100, null, 'admin'); -- falha (só master)
 reset role;
 set role authenticated; set request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 select add_ghost_receipt(0); -- falha (valor zero)
 select add_ghost_receipt(10, current_date + 5); -- falha (data no futuro)
-select 'T60 master lança fantasma sem O.S. e sem taxa (t)' t, add_ghost_receipt(1234.56, current_date - 3, 'Saldo anterior') is not null;
-select 'T61 fantasma: sem O.S., forma fantasma, sem taxa, sem despesa (fantasma, 1234.56, fantasma, 0, 0)' t,
+select 'T65 master lança fantasma sem O.S. e sem taxa (t)' t, add_ghost_receipt(1234.56, current_date - 3, 'Saldo anterior') is not null;
+select 'T66 fantasma: sem O.S., forma fantasma, sem taxa, sem despesa (fantasma, 1234.56, fantasma, 0, 0)' t,
   r.kind, r.total, p.method, p.fee_pct, (select count(*) from expenses where receipt_id = r.id)
   from receipts r join receipt_payments p on p.receipt_id = r.id where r.kind = 'fantasma' and r.service_order_id is null;
 reset role;
 set role authenticated; set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
-select 'T62 admin vê a fantasma mas não exclui (1)' t, count(*) from receipts where kind = 'fantasma';
+select 'T67 admin vê a fantasma mas não exclui (1)' t, count(*) from receipts where kind = 'fantasma';
 select delete_ghost_receipt((select id from receipts where kind = 'fantasma')); -- falha (só master)
 reset role;
 set role authenticated; set request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 select delete_ghost_receipt((select id from receipts where kind = 'fantasma'));
-select 'T63 master exclui a fantasma (0, 0)' t, (select count(*) from receipts where kind = 'fantasma'), (select count(*) from receipt_payments where method = 'fantasma');
+select 'T68 master exclui a fantasma (0, 0)' t, (select count(*) from receipts where kind = 'fantasma'), (select count(*) from receipt_payments where method = 'fantasma');
 reset role;
