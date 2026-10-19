@@ -104,7 +104,7 @@ export function mesDados(receipts: GReceipt[], orders: Map<string, GOrder>, qmap
   return {
     n: recs.length, fat: round2(fat), pecas: round2(pecas), mao: round2(mao),
     ticket: recs.length ? fat / recs.length : 0, tempo: nd ? d / nd : 0, desc: round2(desc), descN,
-    serv: Object.values(serv).sort((a, b) => b.q - a.q || b.v - a.v), tipos,
+    serv: Object.values(serv).sort((a, b) => b.v - a.v || b.q - a.q), tipos,
   };
 }
 
@@ -175,6 +175,41 @@ export function computeGestao(input: {
   const totMec = Math.max(1, mec.reduce((a, x) => a + x.fat, 0));
 
   return { mes, ant, M, P, ateDia, cur, prev, aFat, aFatN: aprov.length, taxa, decN: nDec, mec, totMec };
+}
+
+// ---------------------------------------------------------------------------
+// "Resultado do mês" (regime de caixa): recebido nas entradas − despesas pagas no mês (pela data do pagamento).
+// Antecipação de lucros é retirada do dono, não despesa: fica fora da conta e aparece à parte.
+
+export interface GExpense { category: string; amount: number; paid_on: string | null }
+export interface Resultado {
+  recebido: number; taxas: number; comissoes: number; compras: number; outras: number;
+  /** maiores categorias dentro de "outras", da maior para a menor */
+  outrasCats: { n: string; v: number }[];
+  retiradas: number; resultado: number;
+  /** resultado ÷ recebido, em % inteiro (null sem recebido) */
+  margem: number | null;
+}
+
+/** Despesas pagas no mês 'aaaa-mm', opcionalmente só até o dia `ateDia`. */
+export function resultadoMes(recebido: number, expenses: GExpense[], mes: string, ateDia = 31): Resultado {
+  const pagas = expenses.filter(e => e.paid_on && e.paid_on.slice(0, 7) === mes && Number(e.paid_on.slice(8, 10)) <= ateDia);
+  let taxas = 0, comissoes = 0, compras = 0, outras = 0, retiradas = 0;
+  const cats: Record<string, number> = {};
+  for (const e of pagas) {
+    const v = Number(e.amount);
+    if (e.category === "Taxa de pagamento") taxas += v;
+    else if (e.category === "Comissão") comissoes += v;
+    else if (e.category === "Compra de mercadorias") compras += v;
+    else if (e.category === "Antecipação de lucros") retiradas += v;
+    else { outras += v; cats[e.category] = (cats[e.category] || 0) + v; }
+  }
+  const resultado = round2(recebido - taxas - comissoes - compras - outras);
+  return {
+    recebido: round2(recebido), taxas: round2(taxas), comissoes: round2(comissoes), compras: round2(compras), outras: round2(outras),
+    outrasCats: Object.entries(cats).map(([n, v]) => ({ n, v: round2(v) })).sort((a, b) => b.v - a.v),
+    retiradas: round2(retiradas), resultado, margem: recebido ? Math.round(resultado / recebido * 100) : null,
+  };
 }
 
 // ---------------------------------------------------------------------------

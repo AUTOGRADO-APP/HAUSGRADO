@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server.ts";
 import type { ExpenseRow } from "@/lib/fin-b.ts";
+import { CATDESP } from "@/lib/labels.ts";
 import { Despesas } from "./Despesas.tsx";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,7 @@ type Raw = Omit<ExpenseRow, "pay_method" | "invoice" | "supplier"> & {
   purchase: { payment_method: string; invoice_number: string | null; supplier: { name: string } | null } | null;
 };
 
-export default async function DespesasPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
+export default async function DespesasPage({ searchParams }: { searchParams: Promise<{ edit?: string; cat?: string }> }) {
   const sp = await searchParams;
   const sb = await createClient();
   const { data, error } = await sb.from("expenses")
@@ -21,7 +22,7 @@ export default async function DespesasPage({ searchParams }: { searchParams: Pro
   return (
     <main id="view">
       {error && <div className="banner"><span>Erro ao carregar despesas: {error.message}</span></div>}
-      <Despesas list={list} editId={sp.edit ?? null} />
+      <Despesas list={list} editId={sp.edit ?? null} cat0={sp.cat && CATDESP.includes(sp.cat) ? sp.cat : ""} />
     </main>
   );
 }

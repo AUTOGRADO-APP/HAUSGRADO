@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client.ts";
 import { brl, STATUSES, type Role, type ShopFees, type Status } from "@/lib/rules.ts";
-import { ABAS, FOTOS, ITENS_CK, ORC_ST, TIPOS, digits, dt, fmtFone, fromLocalInput, toLocalInput } from "@/lib/labels.ts";
+import { ABAS, FOTOS, ITENS_CK, ORC_ST, TIPOS, digits, dt, fmtDias, fmtFone, fromLocalInput, primeiroNome, toLocalInput } from "@/lib/labels.ts";
 import { addMediaRecord, uploadFile, BUCKET } from "@/lib/media.ts";
 import { msgOS, portalLink, waURL } from "@/lib/msgs.ts";
 import { copyText, errMsg, sfx, toast } from "@/lib/ui.ts";
@@ -26,6 +26,11 @@ export interface OSPhoto { id: string; position: string; storage_path: string; u
 export interface OSHist { id: number; text: string; created_by_name: string | null; created_at: string }
 export interface OSQuote { id: string; number: number; status: string; total: number }
 export interface OSTech { id: string; name: string; active: boolean }
+/** Item do orçamento ativo, sem valores (os_tasks() no banco). */
+export interface OSTask {
+  id: string; kind: "peca" | "mao"; description: string; details: string | null; qty: number; position: number;
+  quote_status: string; done_at: string | null; done_by_name: string | null;
+}
 
 const ABA_NOME: Record<string, string> = Object.fromEntries(ABAS.map(([k, , n]) => [k, n]));
 const ST_LABEL = Object.fromEntries(STATUSES.map(s => [s.id, s.label])) as Record<Status, string>;
@@ -33,9 +38,10 @@ const IVIDEO = <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="curre
 const ICAMI = <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>;
 const ICAM_DROP = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true" style={{ width: 34, height: 34, stroke: "var(--muted)" }}><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>;
 
-export function OSDetail({ os, shopId, role, photos, records, history, techs, quote, shopName, portalBase, fees, hasPassword, total }: {
+export function OSDetail({ os, shopId, role, photos, records, history, techs, quote, shopName, portalBase, fees, hasPassword, total, tasks, statusSince }: {
   os: OSData; shopId: string; role: Role; photos: OSPhoto[]; records: OSRecord[]; history: OSHist[]; techs: OSTech[];
   quote: OSQuote | null; shopName: string; portalBase: string | null; fees: ShopFees; hasPassword: boolean; total: number;
+  tasks: OSTask[]; statusSince: string;
 }) {
   const sb = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -72,6 +78,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
     const ch = sb.channel(`os-${os.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "service_order_records", filter: `service_order_id=eq.${os.id}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "service_orders", filter: `id=eq.${os.id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "quote_item_done", filter: `service_order_id=eq.${os.id}` }, refresh)
       .subscribe();
     return () => { void sb.removeChannel(ch); };
   }, [sb, os.id, refresh]);
@@ -138,6 +145,17 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
     if (!(await upd({ entry_type: k }))) return;
     await hist("Tipo alterado para " + TIPOS[k]);
     sfx("tap"); router.refresh();
+  }
+
+  // ---------- serviços a executar ----------
+  const [feito, setFeito] = useState<Record<string, boolean>>({});
+  useEffect(() => setFeito({}), [tasks]);
+  async function marcar(t: OSTask, v: boolean) {
+    setFeito(f => ({ ...f, [t.id]: v }));
+    const { error } = await sb.rpc("set_task_done", { p_item: t.id, p_done: v });
+    if (error) { setFeito(f => { const n = { ...f }; delete n[t.id]; return n; }); return toast(errMsg(error), { err: true }); }
+    sfx(v ? "ok" : "tap");
+    router.refresh();
   }
 
   // ---------- registros ----------
@@ -225,6 +243,10 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
   const fotoUrl = (k: string) => photos.find(p => p.position === k)?.url ?? null;
   const conferidos = ITENS_CK.filter(([k]) => os.checklist?.[k]).map(([, l]) => l).join(", ");
   const respOpts = techs;
+  const fone = digits(os.customer_phone);
+  const waOi = waURL(os.customer_phone, `Olá, ${primeiroNome(os.customer_name)}! Aqui é da ${shopName}.`);
+  const naEtapa = os.status === "finalizado" ? 0 : (Date.now() - new Date(statusSince).getTime()) / 864e5;
+  const qStatus = quote?.status ?? tasks[0]?.quote_status ?? null;
 
   return (
     <div className="stack">
@@ -238,6 +260,20 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
               <span className="chip">OS {os.number}</span>
               <span className={`chip t-${os.entry_type}`}><span className="dot" style={{ background: "currentColor" }} />{TIPOS[os.entry_type]}</span>
               <span className="chip">Entrada {dt(os.entered_at)}</span>
+            </div>
+            <div className="os-quick">
+              <span className="oq-cli">
+                <b>{os.customer_name || "Sem cliente"}</b>
+                {fone && <a className="mono" href={`tel:+55${fone.replace(/^55/, "")}`} aria-label={`Ligar para ${os.customer_name}`}>{fmtFone(os.customer_phone)}</a>}
+                {waOi && <a className="key sm" href={waOi} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
+              </span>
+              {os.status === "finalizado"
+                ? <span className="oq-st">Finalizada em <b className="mono">{dt(os.exited_at)}</b></span>
+                : <span className={`oq-st ${naEtapa >= 3 ? "late" : ""}`} suppressHydrationWarning>
+                    {ST_LABEL[os.status]} há <b className="mono" suppressHydrationWarning>{fmtDias(naEtapa) === "—" ? "menos de 1 h" : fmtDias(naEtapa)}</b>{naEtapa >= 3 ? " · parado" : ""}</span>}
+              <span className={`oq-orc ${qStatus === "aprovado" ? "ok" : qStatus === "recusado" ? "bad" : ""}`}>
+                {qStatus ? <>Orçamento {ORC_ST[qStatus].toLowerCase()}{quote && office ? <> · <b className="mono">{brl(quote.total)}</b></> : null}</> : "Sem orçamento"}
+              </span>
             </div>
           </div>
           <div style={{ marginLeft: "auto" }} className="row">
@@ -268,6 +304,9 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
 
       <div className="split">
         <div className="stack" style={{ gap: 22 }}>
+          <Tarefas tasks={tasks} feito={feito} osStatus={os.status} office={office} onMarcar={(t, v) => void marcar(t, v)}
+            onEntrega={() => void setStatus("entrega")} />
+
           <section className="panel">
             <div className="ph"><h2>Descrição do serviço</h2>
               <span className="row"><span className="hint">Vai na primeira página da pasta do cliente</span>
@@ -312,13 +351,12 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
           <section className="panel">
             <div className="ph"><h2>Acesso do cliente</h2><span className="live"><span className="dot" />AO VIVO</span></div>
             <div className="stack" style={{ gap: 8 }}>
-              <div className="muted">{os.customer_name || "Sem cliente"} · {fmtFone(os.customer_phone) || "sem celular"}</div>
-              <div className="linkbox">{link}</div>
-              <div className="hint">Senha: celular do cliente com DDD, só números{os.customer_phone ? ` (${digits(os.customer_phone)})` : ""}.</div>
+              <div className="hint">O cliente acompanha a O.S. pelo link, com fotos e orçamento. Senha: celular com DDD, só números{os.customer_phone ? ` (${digits(os.customer_phone)})` : ""}.</div>
               <div className="row">
                 {wa
                   ? <a className="key wa" href={wa} target="_blank" rel="noopener noreferrer" onClick={() => { void hist("Link de acompanhamento enviado pelo WhatsApp").then(() => router.refresh()); }}>Enviar no WhatsApp</a>
                   : <span className="key wa" aria-disabled="true">Enviar no WhatsApp</span>}
+                <button type="button" className="key" onClick={() => void copyText(link)} title={link}>Copiar link</button>
                 <button type="button" className="key" onClick={() => void copyText(msg)}>Copiar mensagem</button>
               </div>
               <a className="key" href={`/c/${os.portal_token}`} target="_blank" rel="noopener noreferrer">Ver como o cliente vê</a>
@@ -442,5 +480,55 @@ function MediaItem({ m, pend, onPend, onDelete, onSave }: {
           value={parcial ? juntarDitado(v, parcial) : v} onChange={e => mudar(e.target.value)} onBlur={e => void salvar(e.target.value)} />
       </div>
     </div>
+  );
+}
+
+const EM_ANDAMENTO: Status[] = ["aprovado", "pecas", "servico"];
+
+/** Itens do orçamento ativo sem valores, com a marcação de feito (todos os perfis). */
+function Tarefas({ tasks, feito, osStatus, office, onMarcar, onEntrega }: {
+  tasks: OSTask[]; feito: Record<string, boolean>; osStatus: Status; office: boolean;
+  onMarcar: (t: OSTask, v: boolean) => void; onEntrega: () => void;
+}) {
+  const aprovado = tasks[0]?.quote_status === "aprovado", fechada = osStatus === "finalizado";
+  const pode = aprovado && !fechada;
+  const ok = (t: OSTask) => feito[t.id] ?? !!t.done_at;
+  const nOk = tasks.filter(ok).length;
+  const grupos: [string, OSTask[]][] = [["Peças", tasks.filter(t => t.kind === "peca")], ["Mão de obra", tasks.filter(t => t.kind === "mao")]];
+  let n = 0;
+  return (
+    <section className={`panel tasks ${pode ? "" : "off"}`} aria-labelledby="tk-t">
+      <div className="ph">
+        <div><h2 id="tk-t">Serviços a executar</h2>
+          <p className="hint" style={{ margin: "4px 0 0" }}>
+            {!tasks.length ? "Itens do orçamento, sem valores"
+              : !aprovado ? "Aguardando aprovação do cliente: ainda não comece"
+              : fechada ? "O.S. finalizada"
+              : "Marque cada item quando terminar"}</p></div>
+        {tasks.length > 0 && <div className="tk-prog" aria-label={`${nOk} de ${tasks.length} feitos`}>
+          <b className="mono">{nOk}/{tasks.length}</b><span className="meter"><span style={{ width: `${nOk / tasks.length * 100}%` }} /></span></div>}
+      </div>
+      {!tasks.length
+        ? <div className="empty">{office ? "Esta O.S. ainda não tem orçamento. Os itens aparecem aqui assim que ele for criado." : "O escritório ainda não montou o orçamento desta O.S."}</div>
+        : grupos.filter(([, l]) => l.length).map(([g, l]) => (
+          <div className="tk-g" key={g}>
+            <span className="label">{g} · {l.length}</span>
+            {l.map(t => { n++; const v = ok(t); return (
+              <label className={`tk ${v ? "done" : ""}`} key={t.id}>
+                <input type="checkbox" checked={v} disabled={!pode} onChange={e => onMarcar(t, e.target.checked)} />
+                <span className="tk-n mono">{n}</span>
+                <span className="tk-d"><b>{t.description || "Item sem descrição"}</b>
+                  {t.details && <small>{t.details}</small>}
+                  {v && t.done_at && <small className="tk-by">Feito {t.done_by_name ? `por ${primeiroNome(t.done_by_name)} ` : ""}em {dt(t.done_at)}</small>}</span>
+                <span className="tk-q mono">{String(t.qty).replace(".", ",")}</span>
+              </label>
+            ); })}
+          </div>
+        ))}
+      {pode && tasks.length > 0 && nOk === tasks.length && EM_ANDAMENTO.includes(osStatus) && (
+        <div className="tk-fim"><span>Tudo feito.</span>
+          <button type="button" className="key accent sm" onClick={onEntrega}>Mover para Esperando entrega</button></div>
+      )}
+    </section>
   );
 }
