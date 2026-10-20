@@ -303,7 +303,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
                   <td className="it-v"><input className="it-in" aria-label="Custo unitário" readOnly={locked || cad} inputMode="decimal" style={{ textAlign: "right" }}
                     title={cad ? "Custo do cadastro do produto" : undefined} value={i.costTxt} onChange={e => edit(i.id, "unit_cost", e.target.value)} /></td>
                   <td className="it-v"><input className={`it-in${bad ? " bad" : ""}`} aria-label="Margem (%)" readOnly={locked || !(i.unit_cost > 0)} inputMode="decimal" style={{ textAlign: "right" }}
-                    placeholder="—" title={i.unit_cost > 0 ? "Margem sobre o preço (%)" : "Informe o custo para calcular pela margem"}
+                    placeholder="—" title={i.unit_cost > 0 ? "Margem sobre o custo (%): preço = custo × (1 + margem)" : "Informe o custo para calcular pela margem"}
                     value={i.unit_cost > 0 ? i.marginTxt : ""} onChange={e => edit(i.id, "margin", e.target.value)} /></td>
                 </> : <>
                   <td className="it-v num na"><span className="muted">—</span></td>
@@ -317,7 +317,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
             })}
           </tbody>
         </table></div>
-        <p className="hint" style={{ margin: "8px 0 0" }}>{minPct > 0 ? `Margem mínima para peças: ${pct(minPct)} sobre o preço. ` : ""}Custo e margem são só da oficina: não aparecem no PDF, no WhatsApp nem no link do cliente.</p>
+        <p className="hint" style={{ margin: "8px 0 0" }}>{minPct > 0 ? `Margem mínima para peças: ${pct(minPct)} sobre o custo. ` : ""}Custo e margem são só da oficina: não aparecem no PDF, no WhatsApp nem no link do cliente.</p>
         {!locked && <div className="row" style={{ marginTop: 12 }}>
           <button className="key" onClick={() => void insert({ kind: "peca", description: "", unit_price: 0 }, true)}>+ Peça</button>
           <button className="key" onClick={() => void insert({ kind: "mao", description: "Mão de obra", unit_price: 0 }, true)}>+ Mão de obra</button>

@@ -101,18 +101,19 @@ test("linha de orçamento em branco", () => {
   assert.equal(isBlankItem({ description: "", unit_price: 50 }), false);
 });
 
-test("margem mínima de peças (igual a public.min_part_price)", () => {
-  assert.equal(minPartPrice(70, 30), 100);          // 70 ÷ 0,70 = 100,00 exato
-  assert.equal(minPartPrice(100, 30), 142.86);      // 142,857… → para cima
+test("margem sobre o custo e margem mínima de peças (igual a public.min_part_price)", () => {
+  assert.equal(priceFromMargin(100, 40), 140);      // 40% sobre o custo, não sobre o preço
+  assert.equal(minPartPrice(100, 30), 130);
+  assert.equal(minPartPrice(70, 30), 91);
   assert.equal(minPartPrice(100, 0), 0);            // sem mínimo
   assert.equal(minPartPrice(0, 30), 0);
-  assert.equal(minPartPrice(33.33, 12.5), 38.10);   // 3333 ÷ 0,875 = 3809,14 → 3810
-  assert.equal(priceFromMargin(100, 30), 142.86);
-  assert.equal(priceFromMargin(100, 100), null);
-  assert.equal(marginOf(100, 142.86), 30);
-  assert.equal(marginOf(100, 0), null);
-  assert.equal(partPriceOk({ kind: "peca", unit_cost: 100, unit_price: 142.85 }, 30), false);
-  assert.equal(partPriceOk({ kind: "peca", unit_cost: 100, unit_price: 142.86 }, 30), true);
+  assert.equal(minPartPrice(33.33, 12.5), 37.5);    // 3333 × 1,125 = 3749,63 → 3750
+  assert.equal(priceFromMargin(59.9, 150), 149.75);
+  assert.equal(priceFromMargin(100, -101), null);
+  assert.equal(marginOf(100, 140), 40);
+  assert.equal(marginOf(0, 50), null);
+  assert.equal(partPriceOk({ kind: "peca", unit_cost: 100, unit_price: 129.99 }, 30), false);
+  assert.equal(partPriceOk({ kind: "peca", unit_cost: 100, unit_price: 130 }, 30), true);
   assert.equal(partPriceOk({ kind: "peca", unit_cost: 100, unit_price: 0 }, 30), true);   // garantia
   assert.equal(partPriceOk({ kind: "mao", unit_cost: 100, unit_price: 10 }, 30), true);   // mão de obra fica de fora
 });
