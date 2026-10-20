@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client.ts";
 import { brl, STATUSES, type Role, type ShopFees, type Status } from "@/lib/rules.ts";
-import { ABAS, FOTOS, ITENS_CK, ORC_ST, TIPOS, digits, dt, fmtDias, fmtFone, fromLocalInput, primeiroNome, toLocalInput } from "@/lib/labels.ts";
+import { ABAS, FOTOS, FOTO_OLEO, ITENS_CK, ORC_ST, TIPOS, digits, dt, fmtDias, fmtFone, fromLocalInput, pedeOleo, primeiroNome, segredoTxt, toLocalInput } from "@/lib/labels.ts";
 import { addMediaRecord, uploadFile, BUCKET } from "@/lib/media.ts";
 import { msgOS, portalLink, waURL } from "@/lib/msgs.ts";
 import { copyText, errMsg, sfx, toast } from "@/lib/ui.ts";
@@ -19,7 +19,7 @@ export interface OSData {
   id: string; number: number; plate: string; make: string | null; model: string | null; year: string | null; color: string | null; fuel: string | null;
   km: string | null; fuel_level: string | null; entry_type: string; status: Status; entered_at: string; exited_at: string | null;
   technician_id: string | null; customer_complaint: string | null; service_description: string | null;
-  checklist: Record<string, boolean>; portal_token: string; customer_name: string; customer_phone: string;
+  checklist: Record<string, unknown>; portal_token: string; customer_name: string; customer_phone: string;
 }
 export interface OSRecord { id: string; tab: string; storage_path: string | null; mime: string | null; file_name: string | null; description: string | null; created_at: string; url?: string | null }
 export interface OSPhoto { id: string; position: string; storage_path: string; url?: string | null }
@@ -201,7 +201,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
         : await sb.from("service_order_photos").insert({ shop_id: shopId, service_order_id: os.id, position: pos, storage_path: path });
       if (error) { await sb.storage.from(BUCKET).remove([path]); throw error; }
       if (atual) await sb.storage.from(BUCKET).remove([atual.storage_path]);
-      await hist("Foto de entrada atualizada");
+      await hist(pos === "oleo" ? "Foto do nível do óleo registrada" : "Foto de entrada atualizada");
       router.refresh();
     } catch (e) { toast(errMsg(e as Error), { err: true }); }
   }
@@ -210,7 +210,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
     const { error } = await sb.from("service_order_photos").delete().eq("id", atual.id);
     if (error) return toast(errMsg(error), { err: true });
     await sb.storage.from(BUCKET).remove([atual.storage_path]);
-    await hist("Foto de entrada removida");
+    await hist(pos === "oleo" ? "Foto do nível do óleo removida" : "Foto de entrada removida");
     router.refresh();
   }
 
@@ -241,7 +241,11 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
   const doTab = records.filter(r => r.tab === aba).slice().reverse();
   const cont = (k: string) => records.filter(r => r.tab === k).length;
   const fotoUrl = (k: string) => photos.find(p => p.position === k)?.url ?? null;
-  const conferidos = ITENS_CK.filter(([k]) => os.checklist?.[k]).map(([, l]) => l).join(", ");
+  const conferidos = ITENS_CK.filter(([k]) => os.checklist?.[k] === true).map(([, l]) => l).join(", ");
+  const segredo = segredoTxt(os.checklist);
+  const [oleoK, oleoL] = FOTO_OLEO;
+  const oleoUrl = fotoUrl(oleoK);
+  const fotosEntrada = pedeOleo(os.entry_type) || oleoUrl ? [...FOTOS, FOTO_OLEO] : FOTOS;
   const respOpts = techs;
   const fone = digits(os.customer_phone);
   const waOi = waURL(os.customer_phone, `Olá, ${primeiroNome(os.customer_name)}! Aqui é da ${shopName}.`);
@@ -304,6 +308,18 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
 
       <div className="split">
         <div className="stack" style={{ gap: 22 }}>
+          {pedeOleo(os.entry_type) && (
+            <section className="oleo-bal" aria-label="Verificar nível do óleo">
+              <span className="ex" aria-hidden="true">❗</span>
+              <div>
+                <p>Após 10min do carro parado verificar nível do óleo e adicionar uma foto de registro</p>
+                {oleoUrl
+                  ? <small className="ok">✓ Foto do nível registrada. Ela sai junto com as fotos de entrada na pasta do cliente.</small>
+                  : <small>Toque no quadro para fotografar. A foto sai junto com as fotos de entrada na pasta do cliente.</small>}
+              </div>
+              <PhotoSlot label={oleoL} url={oleoUrl} onFile={f => void trocarFoto(oleoK, f)} onRemove={() => void removerFoto(oleoK)} />
+            </section>
+          )}
           <Tarefas tasks={tasks} feito={feito} osStatus={os.status} office={office} onMarcar={(t, v) => void marcar(t, v)}
             onEntrega={() => void setStatus("entrega")} />
 
@@ -377,9 +393,10 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
           <section className="panel">
             <div className="ph"><h2>Fotos de entrada</h2></div>
             <div className="photos-mini">
-              {FOTOS.map(([k, l]) => <PhotoSlot key={k} label={l} url={fotoUrl(k)} onFile={f => void trocarFoto(k, f)} onRemove={() => void removerFoto(k)} />)}
+              {fotosEntrada.map(([k, l]) => <PhotoSlot key={k} label={l} url={fotoUrl(k)} onFile={f => void trocarFoto(k, f)} onRemove={() => void removerFoto(k)} />)}
             </div>
-            <div style={{ marginTop: 10 }} className="hint">Conferido: {conferidos || "nenhum item"}</div>
+            {segredo && <div style={{ marginTop: 10 }} className="hint">Segredo de roda: <b>{segredo}</b></div>}
+            {(conferidos || !segredo) && <div style={{ marginTop: segredo ? 4 : 10 }} className="hint">Conferido: {conferidos || "nenhum item"}</div>}
             {os.customer_complaint && <p style={{ margin: "8px 0 0" }}><span className="label">Relato</span><br />{os.customer_complaint}</p>}
             <div className="row" style={{ marginTop: 10 }}>
               <span className="label">Tipo</span>

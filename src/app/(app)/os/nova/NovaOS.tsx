@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client.ts";
-import { FOTOS, ITENS_CK, NIVEIS, TIPOS, dataBR, digits, fmtFone, normPlaca, placaOk } from "@/lib/labels.ts";
+import { FOTOS, NIVEIS, TIPOS, dataBR, digits, fmtFone, normPlaca, placaOk } from "@/lib/labels.ts";
 import { uploadFile } from "@/lib/media.ts";
 import { errMsg, sfx, toast } from "@/lib/ui.ts";
 import { MicButton, juntarDitado } from "@/components/MicButton.tsx";
@@ -16,7 +16,8 @@ export interface NovaVeiculo { plate: string; customer_id: string | null; make: 
 type Lk = "idle" | "busy" | "ok" | "nf" | "err";
 interface Draft {
   placa: string; marca: string; modelo: string; ano: string; cor: string; combustivel: string; km: string; nivel: string;
-  clienteId: string; novoNome: string; novoTel: string; tipo: string; checklist: Record<string, boolean>; obs: string;
+  clienteId: string; novoNome: string; novoTel: string; tipo: string; obs: string;
+  segredo: "" | "sim" | "nao"; segredoLocal: string; chaveOk: boolean;
 }
 const VCAMPOS: [keyof Draft, string][] = [["marca", "Marca"], ["modelo", "Modelo"], ["ano", "Ano fab./mod."], ["cor", "Cor"], ["combustivel", "Combustível"], ["km", "Quilometragem"]];
 
@@ -24,7 +25,7 @@ function novoDraft(clienteId = "", ag?: NovaAgenda | null, v?: NovaVeiculo | nul
   return {
     placa: normPlaca(ag?.plate || ""), marca: v?.make || "", modelo: v?.model || "", ano: v?.year || "", cor: v?.color || "", combustivel: v?.fuel || "",
     km: "", nivel: "1/2", clienteId, novoNome: "", novoTel: "", tipo: "servico",
-    checklist: Object.fromEntries(ITENS_CK.map(([k]) => [k, false])), obs: ag?.reason || "",
+    obs: ag?.reason || "", segredo: "", segredoLocal: "", chaveOk: false,
   };
 }
 
@@ -114,6 +115,7 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
     let tel = digits(d.novoTel); if (tel.length > 11 && tel.startsWith("55")) tel = tel.slice(2);
     if (cid === "__novo" && (!d.novoNome.trim() || tel.length < 10 || tel.length > 11)) return toast("Informe nome e celular com DDD do cliente");
     if (!cid) return toast("Selecione o cliente");
+    if (!segredoOk) return toast(d.segredo === "sim" ? "Marque CHAVE SEGREDO IDENTIFICADA" : "Informe se o carro tem segredo de roda");
     setBusy(true);
     try {
       if (cid === "__novo") {
@@ -130,7 +132,10 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
       const { data: os, error: eo } = await sb.from("service_orders").insert({
         shop_id: shopId, vehicle_id: v.id, customer_id: cid, plate: placa, ...veh,
         km: d.km.trim() || null, fuel_level: d.nivel, entry_type: d.tipo, status: "orcamento",
-        customer_complaint: d.obs.trim() || null, checklist: d.checklist,
+        customer_complaint: d.obs.trim() || null,
+        checklist: d.segredo === "sim"
+          ? { segredo_roda: true, segredo_local: d.segredoLocal.trim() || null, chave_segredo_ok: d.chaveOk }
+          : { segredo_roda: false },
         appointment_id: agd?.id ?? null,
       }).select("id, number").single();
       if (eo) throw eo;
@@ -152,7 +157,7 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
       }
 
       Object.values(fotos).forEach(f => URL.revokeObjectURL(f.url));
-      toast(`Checklist aberto · OS ${os.number}`, { sound: "ok" });
+      toast(`O.S. aberta · OS ${os.number}`, { sound: "ok" });
       if (falhas) setTimeout(() => toast(`${falhas} foto${falhas > 1 ? "s" : ""} de entrada não ${falhas > 1 ? "foram enviadas" : "foi enviada"}. Envie de novo na O.S.`, { err: true }), 3600);
       router.push(`/os/${osId}`);
       router.refresh();
@@ -162,6 +167,7 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
     }
   }
 
+  const segredoOk = d.segredo === "nao" || (d.segredo === "sim" && d.chaveOk);
   const lcdTxt = { idle: "DIGITE A PLACA E CONSULTE", busy: "CONSULTANDO BASE...", ok: lkMsg, nf: lkMsg, err: lkMsg }[lk];
   const lcdCls = lk === "ok" ? "ok" : lk === "nf" || lk === "err" ? "err" : lk === "busy" ? "busy" : "";
 
@@ -169,7 +175,7 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
     <>
       {agd && (
         <div className="banner" style={{ marginBottom: 22 }}>
-          <span>Entrada do agendamento de <b>{dataBR(agd.date)} às {agd.time.slice(0, 5)}</b>. Ao abrir o checklist, o agendamento fica ligado a esta O.S.</span>
+          <span>Entrada do agendamento de <b>{dataBR(agd.date)} às {agd.time.slice(0, 5)}</b>. Ao abrir a O.S., o agendamento fica ligado a esta O.S.</span>
         </div>
       )}
       <div className="split">
@@ -213,19 +219,29 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
             <div className="tipos">
               {Object.entries(TIPOS).map(([k, l]) => <button type="button" key={k} className={`key ${d.tipo === k ? "accent" : ""}`} aria-pressed={d.tipo === k} onClick={() => set("tipo", k)}>{l}</button>)}
             </div>
-            <div style={{ marginTop: 14 }} className="label">Itens conferidos</div>
-            <div className="checks" style={{ marginTop: 6 }}>
-              {ITENS_CK.map(([k, l]) => (
-                <label key={k}><input type="checkbox" id={`ck-${k}`} checked={!!d.checklist[k]}
-                  onChange={e => setD(x => ({ ...x, checklist: { ...x.checklist, [k]: e.target.checked } }))} /> {l}</label>
-              ))}
-            </div>
             <label className="field" style={{ marginTop: 12 }}>
-              <span className="row" style={{ justifyContent: "space-between" }}><span className="label">Relato do cliente / observações</span>
+              <span className="row" style={{ justifyContent: "space-between" }}><span className="label">Relato do cliente</span>
                 <MicButton onText={t => setD(x => ({ ...x, obs: juntarDitado(x.obs, t) }))} onInterim={setParcial} /></span>
               <textarea className="input" id="d-obs" placeholder="Ex.: barulho ao frear, luz da injeção acesa…"
                 value={parcial ? juntarDitado(d.obs, parcial) : d.obs} onChange={e => set("obs", e.target.value)} />
             </label>
+            <div className="segredo" role="group" aria-labelledby="sg-t">
+              <span className="label" id="sg-t">O carro tem segredo de roda?</span>
+              <div className="sg-opts">
+                {(["sim", "nao"] as const).map(v => (
+                  <button type="button" key={v} id={`sg-${v}`} className={`key ${d.segredo === v ? "accent" : ""}`} aria-pressed={d.segredo === v}
+                    onClick={() => setD(x => ({ ...x, segredo: v }))}>{v === "sim" ? "SIM" : "NÃO"}</button>
+                ))}
+              </div>
+              {d.segredo === "sim" && (
+                <div className="stack" style={{ gap: 10 }}>
+                  <label className="field"><span className="label">Peça ao cliente a localização da chave de segredo</span>
+                    <input className="input" id="sg-local" placeholder="Ex.: porta-luvas, junto do estepe…" value={d.segredoLocal}
+                      onChange={e => set("segredoLocal", e.target.value)} autoComplete="off" /></label>
+                  <label className="sg-ok"><input type="checkbox" id="sg-ok" checked={d.chaveOk} onChange={e => set("chaveOk", e.target.checked)} /> CHAVE SEGREDO IDENTIFICADA</label>
+                </div>
+              )}
+            </div>
             <p className="hint" style={{ margin: "10px 0 0" }}>Os dados do cliente, as fotos e o relato são usados só para o atendimento deste veículo (LGPD).</p>
           </section>
         </div>
@@ -250,8 +266,9 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
             )}
           </section>
           <section className="panel"><div className="stack">
-            <button type="button" className="key accent" style={{ padding: 14 }} onClick={() => void abrir()} disabled={busy}>{busy ? "Abrindo…" : "Abrir checklist"}</button>
+            <button type="button" className="key accent" style={{ padding: 14 }} onClick={() => void abrir()} disabled={busy || !segredoOk}>{busy ? "Abrindo…" : "ABRIR O.S."}</button>
             <button type="button" className="key" onClick={limpar} disabled={busy}>Limpar formulário</button>
+            {!segredoOk && <p className="hint" style={{ margin: 0, color: "var(--danger)" }} id="sg-aviso">{d.segredo === "sim" ? "Marque CHAVE SEGREDO IDENTIFICADA para liberar." : "Responda se o carro tem segredo de roda para liberar."}</p>}
             <p className="hint" style={{ margin: 0 }}>Ao abrir, o carro entra no quadro na coluna <b>Orçamento</b> e você já pode registrar avarias e serviços com fotos e vídeos.</p>
           </div></section>
         </aside>

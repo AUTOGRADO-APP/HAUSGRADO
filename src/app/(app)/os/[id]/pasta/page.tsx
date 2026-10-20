@@ -1,11 +1,13 @@
 // Pasta do cliente (seção 10.1): documento A4 em HTML para imprimir (texto selecionável, preto e branco).
-// Página 1: veículo, cliente, datas, 6 fotos de entrada, descrição do serviço e relato.
-// Depois: Avarias registradas, Peças e Fotos do serviço executado — 4 registros por página; aba vazia não gera página.
+// Página 1: veículo, cliente, datas, fotos de entrada (com estepe e nível do óleo), descrição do serviço e relato.
+// Depois: Avarias registradas, Peças e Fotos do serviço executado, em sequência (sem pular folha entre as seções),
+// 2 registros por linha com o mesmo tamanho de foto; aba vazia não aparece. A paginação é feita em PastaDoc.
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server.ts";
-import { FOTOS, TIPOS, dtFull, fmtFone } from "@/lib/labels.ts";
+import { FOTOS, FOTO_OLEO, TIPOS, dtFull, fmtFone, pedeOleo, segredoTxt } from "@/lib/labels.ts";
 import { loadCustomers } from "@/lib/customers.ts";
 import { PrintBar } from "./PrintBar.tsx";
+import { PastaDoc, type PastaSec } from "./PastaDoc.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +16,7 @@ interface OS {
   id: string; number: number; plate: string; make: string | null; model: string | null; year: string | null; color: string | null;
   fuel: string | null; km: string | null; entry_type: string; entered_at: string; exited_at: string | null;
   customer_complaint: string | null; service_description: string | null;
-  customer_id: string | null; technicians: { name: string } | null;
+  customer_id: string | null; checklist: Record<string, unknown> | null; technicians: { name: string } | null;
 }
 
 const SECS: [string, string][] = [["avarias", "Avarias registradas"], ["pecas", "Peças"], ["servicos", "Fotos do serviço executado"]];
@@ -36,7 +38,7 @@ const CSS = `
 .doc-a4 .kv b{display:block;font-size:9pt;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .doc-a4 .kv b.mono{font-weight:700}
 .doc-a4 .two{display:grid;grid-template-columns:1fr 1fr;gap:8mm}
-.doc-a4 .fotos{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm 4mm;margin-bottom:5mm}
+.doc-a4 .fotos{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm 4mm;margin-bottom:5mm}
 .doc-a4 .ph4{aspect-ratio:4/3;background:#f2f2f2;border:.5px solid #e3e3e3;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:7pt;color:#777;text-align:center}
 .doc-a4 .ph4 img{width:100%;height:100%;object-fit:cover;display:block}
 .doc-a4 .ph4.vid{flex-direction:column;gap:1mm;color:#333;font-weight:700}
@@ -45,16 +47,22 @@ const CSS = `
 .doc-a4 .desc{font-size:9.5pt;line-height:1.45;white-space:pre-wrap;margin:0 0 3mm}
 .doc-a4 .relato{font-size:8pt;color:#333;white-space:pre-wrap;margin:0}
 .doc-a4 .recs{display:grid;grid-template-columns:1fr 1fr;gap:6mm}
+.doc-a4 .u-p1{padding-bottom:3mm}
+.doc-a4 .u-head{padding-top:1mm}
+.doc-a4 .u-row{padding-bottom:4mm}
+.pasta-medida{position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none}
+.pasta-medida .pg.fix{width:210mm;max-width:none;height:297mm;min-height:0}
 .doc-a4 .recs figcaption{margin-top:1.5mm}
 .doc-a4 .recs .when{font-family:var(--font-num);font-size:7pt;font-weight:700;display:block}
 .doc-a4 .recs .txt{font-size:8.5pt;margin-top:1mm;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
 .doc-a4 .ft{display:flex;justify-content:space-between;gap:10px;border-top:.5px solid #bbb;padding-top:1.5mm;margin-top:3mm;font-family:var(--font-num);font-size:7pt}
 @media print{
   @page{size:A4;margin:10mm 12mm}
-  body:has(.doc-a4){padding:0!important;background:#fff!important}
+  body:has(.doc-a4){padding:0!important;margin:0!important;background:#fff!important}
   body:has(.doc-a4) .wrap{padding:0!important;max-width:none!important}
   body:has(.doc-a4) .casing,body:has(.doc-a4) .content{display:block!important;gap:0!important}
   .doc-a4{display:block}
+  .pasta-medida{display:none!important}
   .doc-a4 .pg{width:auto;max-width:none;min-height:0;height:277mm;padding:0;box-shadow:none;break-after:page;page-break-after:always}
   .doc-a4 .pg:last-child{break-after:auto;page-break-after:auto}
   .doc-a4 .ph4{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -72,7 +80,7 @@ export default async function PastaPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const sb = await createClient();
   const { data } = /^[0-9a-f-]{36}$/i.test(id)
-    ? await sb.from("service_orders").select("id, number, plate, make, model, year, color, fuel, km, entry_type, entered_at, exited_at, customer_complaint, service_description, customer_id, technicians(name)").eq("id", id).maybeSingle()
+    ? await sb.from("service_orders").select("id, number, plate, make, model, year, color, fuel, km, entry_type, entered_at, exited_at, customer_complaint, service_description, customer_id, checklist, technicians(name)").eq("id", id).maybeSingle()
     : { data: null };
   const o = data as unknown as OS | null;
   if (!o) {
@@ -104,26 +112,10 @@ export default async function PastaPage({ params }: { params: Promise<{ id: stri
   }
 
   const oficina = (shop as { name: string } | null)?.name ?? "Autogrado";
-  const chunks: { title: string; items: Rec[] }[] = [];
-  for (const [k, t] of SECS) {
-    const it = recs.filter(r => r.tab === k);
-    const n = Math.ceil(it.length / 4);
-    for (let i = 0; i < n; i++) chunks.push({ title: t + (n > 1 ? ` (${i + 1}/${n})` : ""), items: it.slice(i * 4, i * 4 + 4) });
-  }
-  const N = 1 + chunks.length;
   const emit = dtFull(new Date().toISOString());
   const desc = o.service_description?.trim() || recs.filter(r => r.tab === "servicos").map(r => r.description).filter(Boolean).join("\n") || "—";
-
-  const Page = ({ title, n, children }: { title: string; n: number; children: React.ReactNode }) => (
-    <article className="pg" aria-label={`Página ${n} de ${N}`}>
-      <header className="hd">
-        <div><h1>{title}</h1><p>{oficina} · OS {o.number} · emitida em {emit}</p></div>
-        <span className="via">VIA DO CLIENTE</span>
-      </header>
-      <div className="bd">{children}</div>
-      <footer className="ft"><span>{oficina} · OS {o.number} · {o.plate}</span><span>Página {n} de {N}</span></footer>
-    </article>
-  );
+  const fotosEntrada = pedeOleo(o.entry_type) || fotoPath[FOTO_OLEO[0]] ? [...FOTOS, FOTO_OLEO] : FOTOS;
+  const segredo = segredoTxt(o.checklist);
 
   const media = (r: Rec) => {
     if (!r.storage_path) return <div className="ph4">Registro sem foto</div>;
@@ -133,57 +125,59 @@ export default async function PastaPage({ params }: { params: Promise<{ id: stri
     return <div className="ph4">{u ? <img src={u} alt={r.description || "Registro"} /> : "Mídia indisponível"}</div>;
   };
 
+  const fig = (r: Rec) => (
+    <figure key={r.id}>
+      {media(r)}
+      <figcaption>
+        <span className="when">{dtFull(r.created_at)}{isVideo(r) ? " · vídeo" : ""}</span>
+        <span className="txt">{r.description?.trim() || "Sem descrição"}</span>
+      </figcaption>
+    </figure>
+  );
+  const secs: PastaSec[] = SECS.map(([k, title]) => {
+    const it = recs.filter(r => r.tab === k);
+    const rows = [];
+    for (let i = 0; i < it.length; i += 2) rows.push(<div className="recs">{it.slice(i, i + 2).map(fig)}</div>);
+    return { title, rows };
+  }).filter(sc => sc.rows.length);
+
+  const page1 = (
+    <>
+      <h3 className="sec">Veículo</h3>
+      <KV cols={4} items={[
+        ["Placa", o.plate, true], ["Marca", o.make], ["Modelo", o.model], ["Ano", o.year],
+        ["Cor", o.color], ["Quilometragem", o.km ? `${o.km} km` : ""], ["Combustível", o.fuel], ["Tipo de entrada", TIPOS[o.entry_type]],
+      ]} />
+      <div className="two">
+        <div><h3 className="sec">Cliente</h3>
+          <KV cols={2} items={cli?.phone ? [["Nome", cli.name], ["Celular", fmtFone(cli.phone), true]] : [["Nome", cli?.name]]} /></div>
+        <div><h3 className="sec">Datas</h3>
+          <KV cols={2} items={[["Entrada", dtFull(o.entered_at), true], ["Saída", o.exited_at ? dtFull(o.exited_at) : "Em aberto", true], ["Responsável", o.technicians?.name], ...(segredo ? [["Segredo de roda", segredo] as [string, string]] : [])]} /></div>
+      </div>
+      <h3 className="sec">Fotos do veículo na entrada</h3>
+      <div className="fotos">
+        {fotosEntrada.map(([k, l]) => {
+          const u = fotoPath[k] ? url[fotoPath[k]] : undefined;
+          return (
+            <figure key={k}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <div className="ph4">{u ? <img src={u} alt={l} /> : "Sem foto"}</div>
+              <figcaption>{l}</figcaption>
+            </figure>
+          );
+        })}
+      </div>
+      <h3 className="sec">Descrição do serviço</h3>
+      <p className="desc">{desc}</p>
+      {o.customer_complaint?.trim() && <p className="relato">Relato do cliente na entrada: {o.customer_complaint.trim()}</p>}
+    </>
+  );
+
   return (
     <main id="view">
       <style>{CSS}</style>
       <PrintBar osId={o.id} number={o.number} />
-      <div className="doc-a4">
-        <Page title="Pasta do cliente" n={1}>
-          <h3 className="sec">Veículo</h3>
-          <KV cols={4} items={[
-            ["Placa", o.plate, true], ["Marca", o.make], ["Modelo", o.model], ["Ano", o.year],
-            ["Cor", o.color], ["Quilometragem", o.km ? `${o.km} km` : ""], ["Combustível", o.fuel], ["Tipo de entrada", TIPOS[o.entry_type]],
-          ]} />
-          <div className="two">
-            <div><h3 className="sec">Cliente</h3>
-              <KV cols={2} items={cli?.phone ? [["Nome", cli.name], ["Celular", fmtFone(cli.phone), true]] : [["Nome", cli?.name]]} /></div>
-            <div><h3 className="sec">Datas</h3>
-              <KV cols={2} items={[["Entrada", dtFull(o.entered_at), true], ["Saída", o.exited_at ? dtFull(o.exited_at) : "Em aberto", true], ["Responsável", o.technicians?.name]]} /></div>
-          </div>
-          <h3 className="sec">Fotos do veículo na entrada</h3>
-          <div className="fotos">
-            {FOTOS.map(([k, l]) => {
-              const u = fotoPath[k] ? url[fotoPath[k]] : undefined;
-              return (
-                <figure key={k}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <div className="ph4">{u ? <img src={u} alt={l} /> : "Sem foto"}</div>
-                  <figcaption>{l}</figcaption>
-                </figure>
-              );
-            })}
-          </div>
-          <h3 className="sec">Descrição do serviço</h3>
-          <p className="desc">{desc}</p>
-          {o.customer_complaint?.trim() && <p className="relato">Relato do cliente na entrada: {o.customer_complaint.trim()}</p>}
-        </Page>
-
-        {chunks.map((ch, ix) => (
-          <Page key={ch.title} title={ch.title} n={ix + 2}>
-            <div className="recs">
-              {ch.items.map(r => (
-                <figure key={r.id}>
-                  {media(r)}
-                  <figcaption>
-                    <span className="when">{dtFull(r.created_at)}{isVideo(r) ? " · vídeo" : ""}</span>
-                    <span className="txt">{r.description?.trim() || "Sem descrição"}</span>
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
-          </Page>
-        ))}
-      </div>
+      <PastaDoc oficina={oficina} number={o.number} plate={o.plate} emit={emit} page1={page1} secs={secs} />
     </main>
   );
 }

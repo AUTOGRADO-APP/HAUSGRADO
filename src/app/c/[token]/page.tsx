@@ -4,7 +4,7 @@
 // Visual do protótipo (vPortal). "Ao vivo": recarrega sozinho a cada 30 s e ao voltar para a aba.
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { brl, isBlankItem, STATUSES } from "@/lib/rules.ts";
-import { FOTOS, ORC_ST, digits, dt, fmtFone } from "@/lib/labels.ts";
+import { FOTOS, FOTO_OLEO, ORC_ST, digits, dt, fmtFone } from "@/lib/labels.ts";
 import { sfx, toast } from "@/lib/ui.ts";
 import { Plate } from "@/components/Plate.tsx";
 import { ToastHost } from "@/components/Toast.tsx";
@@ -94,7 +94,7 @@ export default function Portal({ params }: { params: Promise<{ token: string }> 
   const i = Math.max(0, STATUSES.findIndex(s => s.id === data.status));
   const fin = data.status === "finalizado";
   const r = data.quote;
-  const fotos = FOTOS.map(([k, l]) => ({ l, url: data.photos.find(p => p.position === k)?.url })).filter(f => f.url);
+  const fotos = [...FOTOS, FOTO_OLEO].map(([k, l]) => ({ l, url: data.photos.find(p => p.position === k)?.url })).filter(f => f.url);
   return (
     <div className="wrap"><div className="portal">
       <section className="panel">
