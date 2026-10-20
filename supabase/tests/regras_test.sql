@@ -221,22 +221,22 @@ select 'T60 admin não muda a margem mínima (0.00)' t, min_part_margin_pct from
 reset role;
 set role authenticated; set request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 update shops set min_part_margin_pct = 30 where id = '00000000-0000-4000-8000-000000000001';
-select 'T61 master define 30% (30.00; preço mínimo de custo 100 = 142.86; custo 70 = 100.00)' t, min_part_margin_pct, min_part_price(100, 30), min_part_price(70, 30) from shops where id = '00000000-0000-4000-8000-000000000001';
+select 'T61 master define 30% sobre o custo (30.00; preço mínimo de custo 100 = 130.00; custo 70 = 91.00)' t, min_part_margin_pct, min_part_price(100, 30), min_part_price(70, 30) from shops where id = '00000000-0000-4000-8000-000000000001';
 insert into quotes (id, status) values ('00000000-0000-4000-8000-0000000000f9', 'rascunho');
 reset role;
 set role authenticated; set request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
-insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'peca', 'Abaixo', 100, 142.85);  -- falha
-insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'peca', 'No limite', 100, 142.86);
+insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'peca', 'Abaixo', 100, 129.99);  -- falha
+insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'peca', 'No limite', 100, 130);
 insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'peca', 'Garantia', 100, 0);
 insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'mao', 'Mão de obra', 100, 10);
-select 'T62 atendente: peça abaixo do mínimo barrada; no limite, R$ 0 e mão de obra passam (3: Garantia, Mão de obra, No limite)' t, count(*), string_agg(description, ', ' order by description) from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9';
+select 'T62 atendente: peça abaixo do markup mínimo barrada; no limite, R$ 0 e mão de obra passam (3: Garantia, Mão de obra, No limite)' t, count(*), string_agg(description, ', ' order by description) from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9';
 update quote_items set unit_cost = 120 where quote_id = '00000000-0000-4000-8000-0000000000f9' and description = 'No limite';  -- falha (custo sobe, preço fica abaixo)
 update quote_items set description = 'No limite!' where quote_id = '00000000-0000-4000-8000-0000000000f9' and description = 'No limite';
-select 'T63 custo maior barrado; editar só a descrição passa (100.00, 142.86, No limite!)' t, unit_cost, unit_price, description from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9' and kind = 'peca' and unit_price > 0;
+select 'T63 custo maior barrado; editar só a descrição passa (100.00, 130.00, No limite!)' t, unit_cost, unit_price, description from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9' and kind = 'peca' and unit_price > 0;
 reset role;
 set role authenticated; set request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 update quote_items set unit_price = 120 where quote_id = '00000000-0000-4000-8000-0000000000f9' and kind = 'peca' and unit_price > 0;  -- falha (nem o master)
-select 'T64 master também não passa da margem mínima (142.86)' t, unit_price from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9' and kind = 'peca' and unit_price > 0;
+select 'T64 master também não passa da margem mínima (130.00)' t, unit_price from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9' and kind = 'peca' and unit_price > 0;
 
 -- ===== ENTRADA FANTASMA (T65–T68) =====
 set role authenticated; set request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';

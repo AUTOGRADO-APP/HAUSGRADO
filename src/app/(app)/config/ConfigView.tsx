@@ -53,8 +53,8 @@ export function ConfigView({ meId, shop, users, techs, pw, canManageUsers }: {
   }
   function savePct(k: "commission_pct" | "min_part_margin_pct" | "fee_debit_pct" | "fee_pix_pct") {
     const n = parseNum(of[k]);
-    const max = k === "min_part_margin_pct" ? 99.99 : 100;
-    if (!(n >= 0 && n <= max)) { toast(k === "min_part_margin_pct" ? "Informe uma margem entre 0 e 99,99%." : "Informe um percentual entre 0 e 100.", { err: true }); setOf(o => ({ ...o, [k]: numTxt(shop[k]) })); return; }
+    const max = k === "min_part_margin_pct" ? 999 : 100;
+    if (!(n >= 0 && n <= max)) { toast(k === "min_part_margin_pct" ? "Informe um markup entre 0 e 999%." : "Informe um percentual entre 0 e 100.", { err: true }); setOf(o => ({ ...o, [k]: numTxt(shop[k]) })); return; }
     if (n === shop[k]) return;
     void saveShop({ [k]: n });
   }
@@ -204,9 +204,9 @@ export function ConfigView({ meId, shop, users, techs, pw, canManageUsers }: {
         <span className="hint">Dinheiro não tem taxa. Mudar a taxa vale só para os próximos recebimentos.</span>
       </div></section>
 
-      <section className="panel"><div className="ph"><h2>Margem mínima de peças</h2></div><div className="stack">
-        <p className="hint" style={{ margin: 0 }}>Menor margem aceita no preço de uma peça do orçamento: (preço − custo) ÷ preço, a mesma da página Produtos. Abaixo dela o orçamento não salva o preço, para qualquer perfil. Mão de obra e peça a R$ 0 (garantia) ficam de fora. Use 0 para não ter mínimo.</p>
-        <label className="field" style={{ maxWidth: 220 }}><span className="label">Margem mínima (%)</span>
+      <section className="panel"><div className="ph"><h2>Markup mínimo de peças</h2></div><div className="stack">
+        <p className="hint" style={{ margin: 0 }}>Menor markup (acréscimo sobre o custo) aceito no preço de uma peça do orçamento: com 40%, uma peça de custo R$ 100 sai por no mínimo R$ 140. Abaixo dele o orçamento não salva o preço, para qualquer perfil. Mão de obra e peça a R$ 0 (garantia) ficam de fora. Use 0 para não ter mínimo.</p>
+        <label className="field" style={{ maxWidth: 220 }}><span className="label">Markup mínimo (%)</span>
           <input className="input" inputMode="decimal" value={of.min_part_margin_pct} onChange={e => setOf({ ...of, min_part_margin_pct: e.target.value })} onBlur={() => savePct("min_part_margin_pct")} /></label>
         <span className="hint">Só o master altera. Vale para os próximos preços digitados; itens já gravados não mudam.</span>
       </div></section>

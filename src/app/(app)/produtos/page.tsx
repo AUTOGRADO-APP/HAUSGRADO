@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function ProdutosPage({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
   const { f } = await searchParams;
   const sb = await createClient();
-  const custos = isOffice((await getMe())?.role);   // mecânico não vê custo nem margem
+  const custos = isOffice((await getMe())?.role);   // mecânico não vê custo nem markup
   const [{ data, error }, { data: extra }, { data: pw }] = await Promise.all([
     sb.from("products")
       .select("id, name, manufacturer, sku, ean, ncm, cost, price, category, viscosity, api, volume, application_spec, application_brands, additive_type, stock_qty, min_stock")

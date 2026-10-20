@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { eanOk, fmtNcm, ncmOk } from "./produtos.ts";
+import { eanOk, fmtNcm, markup, ncmOk } from "./produtos.ts";
 
 test("produtos: NCM com 8 dígitos, exibido 0000.00.00", () => {
   assert.equal(fmtNcm("27101932"), "2710.19.32");
@@ -15,4 +15,11 @@ test("produtos: NCM com 8 dígitos, exibido 0000.00.00", () => {
 test("produtos: EAN-13 com dígito verificador", () => {
   assert.equal(eanOk("7891234567895"), true);
   assert.equal(eanOk("7891234567890"), false);
+});
+
+test("produtos: markup sobre o custo", () => {
+  assert.equal(markup(100, 140), 40);
+  assert.equal(markup(32, 59.9), 87);
+  assert.equal(markup(0, 50), null);
+  assert.equal(markup(50, 0), null);
 });

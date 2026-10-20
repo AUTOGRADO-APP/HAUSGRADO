@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client.ts";
 import { brl } from "@/lib/rules.ts";
 import { ADIT, APIS, CATN, CATS, MARCAS, VISC, VOLS, digits, numBR, parseNum } from "@/lib/labels.ts";
-import { eanOk, fmtNcm, margem, ncmOk, prodResumo } from "@/lib/produtos.ts";
+import { eanOk, fmtNcm, markup, ncmOk, prodResumo } from "@/lib/produtos.ts";
 import { errMsg, toast } from "@/lib/ui.ts";
 import { deltaAjuste, estoqueBaixo, estoqueSit, qtdBR } from "@/lib/estoque.ts";
 import { carregaBalanco, mmss, setBalanco, useBalanco, useRestante } from "@/lib/balanco.ts";
@@ -72,7 +72,7 @@ function Contagem({ p, conferido, onSaved }: { p: Produto; conferido: boolean; o
   );
 }
 
-/** custos = false para o mecânico: some custo e margem, e salvar não mexe no custo. */
+/** custos = false para o mecânico: some custo e markup, e salvar não mexe no custo. */
 export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { rows: Produto[]; filtroInicial?: string; hasPassword: boolean; custos: boolean }) {
   const router = useRouter();
   const fimBal = useBalanco(), restBal = useRestante(fimBal), bal = fimBal != null;
@@ -106,7 +106,7 @@ export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { ro
   const cnt = (k: string) => rows.filter(x => x.category === k).length;
   const nBaixo = rows.filter(x => estoqueBaixo(x) || x.stock_qty < 0).length;
   const aberto = F.id ? rows.find(x => x.id === F.id) : undefined;
-  const mg = margem(F.custo === "" ? 0 : parseNum(F.custo), F.preco === "" ? 0 : parseNum(F.preco));
+  const mg = markup(F.custo === "" ? 0 : parseNum(F.custo), F.preco === "" ? 0 : parseNum(F.preco));
   const eanBad = !!F.ean && !eanOk(F.ean);
   const ncmBad = !!F.ncm && !ncmOk(F.ncm);
 
@@ -227,9 +227,9 @@ export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { ro
             <button className={`key sm ${cat === "baixo" ? "on" : ""}`} id="pr-f-baixo" onClick={() => setCat(cat === "baixo" ? "" : "baixo")}>Estoque baixo <span className={`count ${nBaixo ? "bad" : ""}`}>{nBaixo}</span></button>
             {CATS.map(([k, l]) => <button key={k} className={`key sm ${cat === k ? "on" : ""}`} onClick={() => setCat(k)}>{l} <span className="count">{cnt(k)}</span></button>)}
           </div>
-          <div className="tbl-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th>SKU / EAN / NCM</th><th className="num">Estoque</th>{custos && <th className="num">Custo</th>}<th className="num">Preço</th>{custos && <th className="num">Margem</th>}</tr></thead><tbody>
+          <div className="tbl-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th>SKU / EAN / NCM</th><th className="num">Estoque</th>{custos && <th className="num">Custo</th>}<th className="num">Preço</th>{custos && <th className="num">Markup</th>}</tr></thead><tbody>
             {list.map(x => {
-              const m = margem(x.cost, x.price), r = prodResumo(x), es = estoqueSit(x);
+              const m = markup(x.cost, x.price), r = prodResumo(x), es = estoqueSit(x);
               return (
                 <tr key={x.id} className={`click ${F.id === x.id ? "sel" : ""}`} onClick={() => editar(x)}>
                   <td><b>{x.name}</b><div className="hint">{x.manufacturer || "—"}{r ? " · " + r : ""}</div></td>
@@ -240,7 +240,7 @@ export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { ro
                       : x.min_stock > 0 ? <div className="hint mono">mín. {qtdBR(x.min_stock)}</div> : null}</>}</td>
                   {custos && <td className="num">{brl(x.cost)}</td>}
                   <td className="num"><b>{brl(x.price)}</b></td>
-                  {custos && <td className="num">{m == null ? "—" : <span className={`dl ${m >= 30 ? "up" : m < 10 ? "down" : ""}`}>{m}%</span>}</td>}
+                  {custos && <td className="num">{m == null ? "—" : <span className={`dl ${m >= 43 ? "up" : m < 11 ? "down" : ""}`}>{m}%</span>}</td>}
                 </tr>
               );
             })}
@@ -275,7 +275,7 @@ export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { ro
                 <input className="input" id="pr-custo" inputMode="decimal" value={F.custo} onChange={e => set({ custo: e.target.value })} /></label>}
               <label className="field"><span className="label">Preço (R$) *</span>
                 <input className="input" id="pr-preco" inputMode="decimal" value={F.preco} onChange={e => set({ preco: e.target.value })} /></label>
-              {custos && <div className="field"><span className="label">Margem</span><b className="mono margin-box" id="pr-mg">{mg == null ? "—" : mg + "%"}</b></div>}
+              {custos && <div className="field"><span className="label">Markup</span><b className="mono margin-box" id="pr-mg">{mg == null ? "—" : mg + "%"}</b></div>}
             </div>
             <div className="grid2">
               <label className="field"><span className="label">Estoque mínimo</span>
