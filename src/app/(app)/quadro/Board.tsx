@@ -2,7 +2,7 @@
 // Quadro de serviço (seção 7.3): 6 colunas, arrastar ou ‹ ›, Desfazer, alerta de parado, foto rápida, busca (/).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client.ts";
 import { STATUSES, type Status, type ShopFees } from "@/lib/rules.ts";
 import { STATUS_IDX, TIPOS, normPlaca } from "@/lib/labels.ts";
@@ -24,6 +24,25 @@ const LABEL = Object.fromEntries(STATUSES.map(s => [s.id, s.label])) as Record<S
 /** Filtros que a Gestão abre pelo link (?f=parados | ?f=entrega). */
 const FILTROS = { parados: "Carros parados há 3 dias ou mais", entrega: "Prontos para entrega" } as const;
 const diasNaEtapa = (o: BoardCard) => (Date.now() - new Date(o.status_since).getTime()) / 864e5;
+
+/* Ícones do quadro (traço igual ao do menu). Cada etapa tem uma cor própria (tokens --st-* no CSS). */
+const SV = { className: "ic", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+const I_CARRO = <svg {...SV}><path d="M5 17h14M3.5 17v-4.5L6 7h12l2.5 5.5V17M3.5 12.5h17M6 17v2.5M18 17v2.5" /><circle cx="7.5" cy="14.5" r=".6" /><circle cx="16.5" cy="14.5" r=".6" /></svg>;
+const I_CHAVE = <svg {...SV}><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z" /></svg>;
+const I_CAIXA = <svg {...SV}><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z" /><path d="M3 7.5 12 12l9-4.5M12 12v9" /></svg>;
+const I_CARRO_OK = <svg {...SV}><path d="M3.5 16v-3.5L6 7h12l1.6 3.5M3.5 12.5h9M3.5 16h8M6 16v2.5" /><path d="m15 17 2.5 2.5L22 15" /></svg>;
+const I_DOC = <svg {...SV}><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5M9 13h7M9 17h5" /></svg>;
+const I_DOC_OK = <svg {...SV}><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5" /><path d="m9 15 2 2 4-4" /></svg>;
+const I_OK = <svg {...SV}><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></svg>;
+const VAZIO: Record<Status, [ReactNode, string]> = {
+  orcamento: [I_DOC, "Nenhum orçamento em aberto."],
+  aprovado: [I_DOC_OK, "Os aprovados aparecem aqui."],
+  pecas: [I_CAIXA, "Nenhum carro esperando peças."],
+  servico: [I_CHAVE, "Nenhum serviço iniciado."],
+  entrega: [I_CARRO, "Sem entregas pendentes."],
+  finalizado: [I_OK, "Nada finalizado nos últimos dias."],
+};
+const MES = () => { const t = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" }); return t.charAt(0).toUpperCase() + t.slice(1); };
 
 export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceipt, canReceive, filtro = null }: {
   initial: BoardCard[]; fees: ShopFees; noMes: number; shopId: string; hasPassword: boolean; canUndoReceipt: boolean; canReceive: boolean;
@@ -105,6 +124,9 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
     && (filtro !== "entrega" || o.status === "entrega"));
   const pat = cards.filter(o => o.status !== "finalizado");
   const pad = (n: number) => String(n).padStart(2, "0");
+  const nPecas = cards.filter(o => o.status === "pecas").length;
+  const [mes, setMes] = useState("");
+  useEffect(() => setMes(MES()), []);
 
   const porColuna = STATUSES.map(s => list
     .filter(o => o.status === s.id && (s.id !== "finalizado" || (o.exited_at && Date.now() - new Date(o.exited_at).getTime() <= 3 * 864e5)))
@@ -118,11 +140,11 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
 
   return (
     <>
-      <div className="stats">
-        <div className="stat"><span>No pátio</span><strong>{pad(pat.length)}</strong></div>
-        <div className="stat"><span>Em serviço</span><strong>{pad(cards.filter(o => o.status === "servico").length)}</strong></div>
-        <div className="stat"><span>Aguardando peças</span><strong>{pad(cards.filter(o => o.status === "pecas").length)}</strong></div>
-        <div className="stat hl"><span>Carros atendidos no mês</span><strong>{pad(noMes)}</strong></div>
+      <div className="stats stats-ic">
+        <div className="stat st-orcamento"><i className="stat-ic">{I_CARRO}</i><span>No pátio</span><strong>{pad(pat.length)}</strong><small>Veículos na oficina</small></div>
+        <div className="stat st-servico"><i className="stat-ic">{I_CHAVE}</i><span>Em serviço</span><strong>{pad(cards.filter(o => o.status === "servico").length)}</strong><small>Serviços em andamento</small></div>
+        <div className="stat st-pecas"><i className="stat-ic">{I_CAIXA}</i><span>Aguardando peças</span><strong>{pad(nPecas)}</strong><small>{nPecas ? "Carros parados por peça" : "Sem pendências de peças"}</small></div>
+        <div className="stat hl st-finalizado"><i className="stat-ic">{I_CARRO_OK}</i><span>Atendidos no mês</span><strong>{pad(noMes)}</strong><small>{mes}</small></div>
       </div>
       <main id="view">
         <section className="panel board-wide">
@@ -134,20 +156,21 @@ export function Board({ initial, fees, noMes, shopId, hasPassword, canUndoReceip
           {/* só no celular: atalhos para cada coluna (o quadro rola de lado, uma coluna por vez) */}
           <div className="col-tabs" role="tablist" aria-label="Etapas do quadro">
             {STATUSES.map((s, si) => (
-              <button key={s.id} type="button" role="tab" aria-selected={colAtiva === s.id} className={colAtiva === s.id ? "on" : ""}
-                onClick={() => irColuna(s.id)}><i>{pad(si + 1)}</i>{s.label}<b>{porColuna[si].length}</b></button>
+              <button key={s.id} type="button" role="tab" aria-selected={colAtiva === s.id} className={`st-${s.id} ${colAtiva === s.id ? "on" : ""}`}
+                onClick={() => irColuna(s.id)}><span className="st-dot" aria-hidden="true" />{s.label}<b>{porColuna[si].length}</b></button>
             ))}
           </div>
           <div className="board-scroll" ref={scrollRef}><div className="board">
             {STATUSES.map((s, si) => {
               const cs = porColuna[si];
               return (
-                <div key={s.id} className={`col ${over === s.id ? "over" : ""}`} data-col={s.id}
+                <div key={s.id} className={`col st-${s.id} ${over === s.id ? "over" : ""}`} data-col={s.id}
                   onDragOver={e => { e.preventDefault(); setOver(s.id); }} onDragLeave={() => setOver(o => (o === s.id ? null : o))}
                   onDrop={e => { e.preventDefault(); setOver(null); void move(e.dataTransfer.getData("text/plain"), s.id); }}>
-                  <div className="col-h"><span className="t"><i>{pad(si + 1)}</i>{s.label}</span><span className="count">{cs.length}</span></div>
+                  <div className="col-h"><span className="t"><span className="st-dot" aria-hidden="true" /><i>{pad(si + 1)}</i>{s.label}</span><span className="count">{cs.length}</span></div>
                   {s.id === "finalizado" && <div className="hint" style={{ padding: "0 4px" }}>Últimos 3 dias · os anteriores ficam no <Link className="lnk" href="/historico">Histórico</Link></div>}
-                  {cs.length ? cs.map(o => <Card key={o.id} o={o} onMove={move} onPhoto={quickPhoto} onOpen={() => router.push(`/os/${o.id}`)} />) : <div className="empty">Nenhum veículo</div>}
+                  {cs.length ? cs.map(o => <Card key={o.id} o={o} onMove={move} onPhoto={quickPhoto} onOpen={() => router.push(`/os/${o.id}`)} />)
+                    : <div className="col-vazia">{VAZIO[s.id][0]}<b>Nenhum veículo</b><span>{VAZIO[s.id][1]}</span></div>}
                 </div>
               );
             })}

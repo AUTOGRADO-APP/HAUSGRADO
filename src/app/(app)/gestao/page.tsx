@@ -157,7 +157,7 @@ export default async function GestaoPage({ searchParams }: { searchParams: Promi
       <div className="g-wrap">
         <section className="g-head">
           <div>
-            <span className="label">Painel de gestão</span>
+            <span className="label">Visão geral</span>
             <h1>{nm}</h1>
             <p className="hint" style={{ margin: "2px 0 0" }}>Recebido nas entradas do mês · comparado com {cmp}</p>
           </div>

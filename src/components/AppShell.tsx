@@ -22,7 +22,7 @@ import { IKEY } from "./icons.tsx";
 
 const NAVI: Record<string, string> = {
   servcat: "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z",
-  gestao: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  gestao: "M3 10.5 12 3l9 7.5M5.5 8.5V21h13V8.5M10 21v-6h4v6",
   historico: "", agenda: "", quadro: "", clientes: "", orcamentos: "", produtos: "", financeiro: "",
 };
 function NavIcon({ k }: { k: string }) {
@@ -39,23 +39,40 @@ function NavIcon({ k }: { k: string }) {
   }
 }
 
-const NAV: { k: string; href: string; l: string }[] = [
-  { k: "gestao", href: "/gestao", l: "Gestão" },
-  { k: "financeiro", href: "/financeiro/entradas", l: "Financeiro" },
-  { k: "quadro", href: "/quadro", l: "Quadro" },
-  { k: "agenda", href: "/calendario", l: "Calendário" },
-  { k: "clientes", href: "/clientes", l: "Clientes" },
-  { k: "orcamentos", href: "/orcamentos", l: "Orçamentos" },
-  { k: "produtos", href: "/produtos", l: "Produtos" },
-  { k: "servcat", href: "/servicos", l: "Serviços" },
-  { k: "historico", href: "/historico", l: "Histórico de O.S." },
+// Menu em dois blocos: PRINCIPAL (o dia a dia) e CADASTROS (listas e consultas)
+const NAV: { k: string; href: string; l: string; g: "principal" | "cadastros" }[] = [
+  { k: "gestao", href: "/gestao", l: "Visão geral", g: "principal" },
+  { k: "quadro", href: "/quadro", l: "Quadro", g: "principal" },
+  { k: "financeiro", href: "/financeiro/entradas", l: "Financeiro", g: "principal" },
+  { k: "agenda", href: "/calendario", l: "Calendário", g: "principal" },
+  { k: "clientes", href: "/clientes", l: "Clientes", g: "cadastros" },
+  { k: "orcamentos", href: "/orcamentos", l: "Orçamentos", g: "cadastros" },
+  { k: "produtos", href: "/produtos", l: "Produtos", g: "cadastros" },
+  { k: "servcat", href: "/servicos", l: "Serviços", g: "cadastros" },
+  { k: "historico", href: "/historico", l: "Histórico de O.S.", g: "cadastros" },
 ];
+const GRUPOS = [["principal", "Principal"], ["cadastros", "Cadastros"]] as const;
 const SUB: [string, string][] = [["/financeiro/entradas", "Entradas"], ["/financeiro/compras", "Compras"], ["/financeiro/despesas", "Despesas"], ["/financeiro/fornecedores", "Fornecedores"], ["/financeiro/comissoes", "Comissões"], ["/financeiro/metas", "Metas"], ["/financeiro/calendario", "Calendário financeiro"]];
 
 const ISOM = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" /><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /></svg>;
 const ISOMX = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" /><path d="M17 9l5 6M22 9l-5 6" /></svg>;
 const IBELL = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>;
 const IGEAR = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.830l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>;
+
+const ISOL = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>;
+const ILUA = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z" /></svg>;
+
+/** Seletor de tema compacto: sol (claro) e lua (escuro). */
+function TemaSwitch({ tema, onTema }: { tema: "light" | "dark"; onTema: (t: "light" | "dark") => void }) {
+  return (
+    <div className="theme theme-ic" role="group" aria-label="Tema">
+      {(["light", "dark"] as const).map(t => (
+        <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} aria-label={t === "light" ? "Tema claro" : "Tema escuro"} title={t === "light" ? "Tema claro" : "Tema escuro"}
+          onClick={() => { setTheme(t); onTema(t); sfx("tap"); }}>{t === "light" ? ISOL : ILUA}</button>
+      ))}
+    </div>
+  );
+}
 
 export const FOOT = <footer className="foot">Aplicativo desenvolvido por Vinícius de Albuquerque para uso exclusivo da Autogrado.</footer>;
 
@@ -301,12 +318,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
             </button>
             <button className="gear" aria-label={som ? "Desligar sons" : "Ligar sons"} title={som ? "Sons ligados" : "Sons desligados"}
               onClick={() => { const v = !som; setSom(v); setSomS(v); if (v) sfx("tap"); }}>{som ? ISOM : ISOMX}</button>
-            {master && <Link className={`gear ${cur("/config") ? "on" : ""}`} href="/config" aria-label="Configurações" title="Configurações" onClick={() => sfx("tap")}>{IGEAR}</Link>}
-            <div className="theme" role="group" aria-label="Tema">
-              {(["light", "dark"] as const).map(t => (
-                <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} onClick={() => { setTheme(t); setTema(t); sfx("tap"); }}>{t === "light" ? "Claro" : "Escuro"}</button>
-              ))}
-            </div>
+            <TemaSwitch tema={tema} onTema={setTema} />
             <Clock />
           </div>
         </header>
@@ -320,29 +332,34 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
               </button>
             </div>
             <nav className="side-nav" aria-label="Menu principal">
-              {NAV.filter(n => canAccess(U.role, n.href)).map(n => {
-                const isGrupo = n.k === "financeiro";
-                const on = isGrupo ? finOpen : cur(n.href) || (n.k === "quadro" && path.startsWith("/os/"));
+              {GRUPOS.map(([g, gl]) => {
+                const itens = NAV.filter(n => n.g === g && canAccess(U.role, n.href));
+                if (!itens.length) return null;
                 return (
-                  <div key={n.k} style={{ display: "contents" }}>
-                    <Link className={`key ${on ? "on" : ""}`} href={n.href} aria-current={on ? "page" : undefined} aria-expanded={isGrupo ? on : undefined} onClick={() => { sfx("tap"); if (!isGrupo || on) setMenu(false); }}>
-                      <NavIcon k={n.k} /><span>{n.l}</span>
-                      {isGrupo && <svg className="ic chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d={on ? "M6 15l6-6 6 6" : "M9 6l6 6-6 6"} /></svg>}
-                    </Link>
-                    {isGrupo && on && <div className="sub-nav">{SUB.filter(([h]) => canAccess(U.role, h)).map(([h, l]) => <Link key={h} className={`key sub ${cur(h) ? "on" : ""}`} href={h} onClick={() => { sfx("tap"); setMenu(false); }}>{l}</Link>)}</div>}
+                  <div key={g} className="side-grp" role="group" aria-label={gl}>
+                    <div className="side-grp-t" aria-hidden="true">{gl}</div>
+                    {itens.map(n => {
+                      const isGrupo = n.k === "financeiro";
+                      const on = isGrupo ? finOpen : cur(n.href) || (n.k === "quadro" && path.startsWith("/os/"));
+                      return (
+                        <div key={n.k} style={{ display: "contents" }}>
+                          <Link className={`key ${on ? "on" : ""}`} href={n.href} aria-current={on ? "page" : undefined} aria-expanded={isGrupo ? on : undefined} onClick={() => { sfx("tap"); if (!isGrupo || on) setMenu(false); }}>
+                            <NavIcon k={n.k} /><span>{n.l}</span>
+                            {isGrupo && <svg className="ic chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d={on ? "M6 15l6-6 6 6" : "M9 6l6 6-6 6"} /></svg>}
+                          </Link>
+                          {isGrupo && on && <div className="sub-nav">{SUB.filter(([h]) => canAccess(U.role, h)).map(([h, l]) => <Link key={h} className={`key sub ${cur(h) ? "on" : ""}`} href={h} onClick={() => { sfx("tap"); setMenu(false); }}>{l}</Link>)}</div>}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
             </nav>
-            {/* só no celular: o que sai da barra do topo vem para o fim do menu */}
+            {/* Configurações no pé do menu; no celular, também o tema e o som (que saem da barra do topo) */}
             <div className="side-extra">
-              {master && <Link className={`key ${cur("/config") ? "on" : ""}`} href="/config" onClick={() => { sfx("tap"); setMenu(false); }}>{IGEAR}<span>Configurações</span></Link>}
+              {master && <Link className={`key side-cfg ${cur("/config") ? "on" : ""}`} href="/config" onClick={() => { sfx("tap"); setMenu(false); }}>{IGEAR}<span>Configurações</span></Link>}
               <div className="row side-prefs">
-                <div className="theme" role="group" aria-label="Tema">
-                  {(["light", "dark"] as const).map(t => (
-                    <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} onClick={() => { setTheme(t); setTema(t); sfx("tap"); }}>{t === "light" ? "Claro" : "Escuro"}</button>
-                  ))}
-                </div>
+                <TemaSwitch tema={tema} onTema={setTema} />
                 <button className="gear" aria-label={som ? "Desligar sons" : "Ligar sons"} title={som ? "Sons ligados" : "Sons desligados"}
                   onClick={() => { const v = !som; setSom(v); setSomS(v); if (v) sfx("tap"); }}>{som ? ISOM : ISOMX}</button>
               </div>

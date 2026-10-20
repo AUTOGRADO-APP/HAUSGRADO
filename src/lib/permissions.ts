@@ -12,7 +12,7 @@ const FIN: Role[] = ["master", "admin"];
 const OFFICE: Role[] = ["master", "admin", "atendente"];
 
 export const NAV: NavItem[] = [
-  { href: "/gestao", label: "Gestão", roles: FIN },
+  { href: "/gestao", label: "Visão geral", roles: FIN },
   {
     href: "/financeiro", label: "Financeiro", roles: OFFICE, children: [
       { href: "/financeiro/entradas", label: "Entradas", roles: OFFICE },
