@@ -59,6 +59,21 @@ const ISOMX = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeW
 const IBELL = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>;
 const IGEAR = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.830l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>;
 
+const ISOL = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>;
+const ILUA = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z" /></svg>;
+
+/** Seletor de tema compacto: sol (claro) e lua (escuro). */
+function TemaSwitch({ tema, onTema }: { tema: "light" | "dark"; onTema: (t: "light" | "dark") => void }) {
+  return (
+    <div className="theme theme-ic" role="group" aria-label="Tema">
+      {(["light", "dark"] as const).map(t => (
+        <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} aria-label={t === "light" ? "Tema claro" : "Tema escuro"} title={t === "light" ? "Tema claro" : "Tema escuro"}
+          onClick={() => { setTheme(t); onTema(t); sfx("tap"); }}>{t === "light" ? ISOL : ILUA}</button>
+      ))}
+    </div>
+  );
+}
+
 export const FOOT = <footer className="foot">Aplicativo desenvolvido por Vinícius de Albuquerque para uso exclusivo da Autogrado.</footer>;
 
 function Brand({ small = "Gestão de pátio" }: { small?: string }) {
@@ -303,12 +318,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
             </button>
             <button className="gear" aria-label={som ? "Desligar sons" : "Ligar sons"} title={som ? "Sons ligados" : "Sons desligados"}
               onClick={() => { const v = !som; setSom(v); setSomS(v); if (v) sfx("tap"); }}>{som ? ISOM : ISOMX}</button>
-            {master && <Link className={`gear ${cur("/config") ? "on" : ""}`} href="/config" aria-label="Configurações" title="Configurações" onClick={() => sfx("tap")}>{IGEAR}</Link>}
-            <div className="theme" role="group" aria-label="Tema">
-              {(["light", "dark"] as const).map(t => (
-                <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} onClick={() => { setTheme(t); setTema(t); sfx("tap"); }}>{t === "light" ? "Claro" : "Escuro"}</button>
-              ))}
-            </div>
+            <TemaSwitch tema={tema} onTema={setTema} />
             <Clock />
           </div>
         </header>
@@ -349,11 +359,7 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
             <div className="side-extra">
               {master && <Link className={`key side-cfg ${cur("/config") ? "on" : ""}`} href="/config" onClick={() => { sfx("tap"); setMenu(false); }}>{IGEAR}<span>Configurações</span></Link>}
               <div className="row side-prefs">
-                <div className="theme" role="group" aria-label="Tema">
-                  {(["light", "dark"] as const).map(t => (
-                    <button key={t} className={tema === t ? "on" : ""} aria-pressed={tema === t} onClick={() => { setTheme(t); setTema(t); sfx("tap"); }}>{t === "light" ? "Claro" : "Escuro"}</button>
-                  ))}
-                </div>
+                <TemaSwitch tema={tema} onTema={setTema} />
                 <button className="gear" aria-label={som ? "Desligar sons" : "Ligar sons"} title={som ? "Sons ligados" : "Sons desligados"}
                   onClick={() => { const v = !som; setSom(v); setSomS(v); if (v) sfx("tap"); }}>{som ? ISOM : ISOMX}</button>
               </div>
