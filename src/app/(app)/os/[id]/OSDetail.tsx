@@ -289,7 +289,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
               <option value="">— definir —</option>
               {respOpts.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
-            <span className="hint">A equipe é cadastrada nas Configurações (engrenagem)</span></label>
+            <span className="hint">A equipe é cadastrada em Configurações</span></label>
           <label className="field"><span className="label">Data de saída</span>
             <input className="input mono" id="os-sai" type="datetime-local" value={sai} onChange={e => setSai(e.target.value)} onBlur={() => void salvarSaida()} />
             <span className="hint">Preenchida sozinha ao marcar Finalizado</span></label>

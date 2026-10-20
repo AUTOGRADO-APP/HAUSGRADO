@@ -92,7 +92,7 @@ main{counter-reset:sec}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .stack{display:grid;gap:14px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.field{display:grid;gap:5px;min-width:0}
+.field{display:grid;gap:5px;min-width:0;align-content:start}
 .input{width:100%;background:var(--input-bg);border:1px solid var(--border-strong);border-radius:var(--r-control);padding:10px 13px;transition:border-color .15s,box-shadow .15s}
 .input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,92,0,.15)}
 .input.bad{border-color:var(--danger);box-shadow:0 0 0 3px rgba(214,69,69,.15)}
@@ -175,7 +175,7 @@ input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
 
 /* OS */
 .os-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-.os-head .info{display:grid;gap:3px;min-width:0}
+.os-head .info{display:grid;gap:3px;min-width:0;flex:1 1 320px}
 .os-head .info h1{font-size:16pt}
 .stbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
 .stbar .key{font-size:10pt;padding:10px 6px;white-space:normal;line-height:1.2;text-align:center}
