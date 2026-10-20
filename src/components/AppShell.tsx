@@ -22,7 +22,7 @@ import { IKEY } from "./icons.tsx";
 
 const NAVI: Record<string, string> = {
   servcat: "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z",
-  gestao: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  gestao: "M3 10.5 12 3l9 7.5M5.5 8.5V21h13V8.5M10 21v-6h4v6",
   historico: "", agenda: "", quadro: "", clientes: "", orcamentos: "", produtos: "", financeiro: "",
 };
 function NavIcon({ k }: { k: string }) {
@@ -39,17 +39,19 @@ function NavIcon({ k }: { k: string }) {
   }
 }
 
-const NAV: { k: string; href: string; l: string }[] = [
-  { k: "gestao", href: "/gestao", l: "Gestão" },
-  { k: "financeiro", href: "/financeiro/entradas", l: "Financeiro" },
-  { k: "quadro", href: "/quadro", l: "Quadro" },
-  { k: "agenda", href: "/calendario", l: "Calendário" },
-  { k: "clientes", href: "/clientes", l: "Clientes" },
-  { k: "orcamentos", href: "/orcamentos", l: "Orçamentos" },
-  { k: "produtos", href: "/produtos", l: "Produtos" },
-  { k: "servcat", href: "/servicos", l: "Serviços" },
-  { k: "historico", href: "/historico", l: "Histórico de O.S." },
+// Menu em dois blocos: PRINCIPAL (o dia a dia) e CADASTROS (listas e consultas)
+const NAV: { k: string; href: string; l: string; g: "principal" | "cadastros" }[] = [
+  { k: "gestao", href: "/gestao", l: "Visão geral", g: "principal" },
+  { k: "quadro", href: "/quadro", l: "Quadro", g: "principal" },
+  { k: "financeiro", href: "/financeiro/entradas", l: "Financeiro", g: "principal" },
+  { k: "agenda", href: "/calendario", l: "Calendário", g: "principal" },
+  { k: "clientes", href: "/clientes", l: "Clientes", g: "cadastros" },
+  { k: "orcamentos", href: "/orcamentos", l: "Orçamentos", g: "cadastros" },
+  { k: "produtos", href: "/produtos", l: "Produtos", g: "cadastros" },
+  { k: "servcat", href: "/servicos", l: "Serviços", g: "cadastros" },
+  { k: "historico", href: "/historico", l: "Histórico de O.S.", g: "cadastros" },
 ];
+const GRUPOS = [["principal", "Principal"], ["cadastros", "Cadastros"]] as const;
 const SUB: [string, string][] = [["/financeiro/entradas", "Entradas"], ["/financeiro/compras", "Compras"], ["/financeiro/despesas", "Despesas"], ["/financeiro/fornecedores", "Fornecedores"], ["/financeiro/comissoes", "Comissões"], ["/financeiro/metas", "Metas"], ["/financeiro/calendario", "Calendário financeiro"]];
 
 const ISOM = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" /><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /></svg>;
@@ -320,23 +322,32 @@ export function AppShell({ data, children }: { data: ShellData; children: ReactN
               </button>
             </div>
             <nav className="side-nav" aria-label="Menu principal">
-              {NAV.filter(n => canAccess(U.role, n.href)).map(n => {
-                const isGrupo = n.k === "financeiro";
-                const on = isGrupo ? finOpen : cur(n.href) || (n.k === "quadro" && path.startsWith("/os/"));
+              {GRUPOS.map(([g, gl]) => {
+                const itens = NAV.filter(n => n.g === g && canAccess(U.role, n.href));
+                if (!itens.length) return null;
                 return (
-                  <div key={n.k} style={{ display: "contents" }}>
-                    <Link className={`key ${on ? "on" : ""}`} href={n.href} aria-current={on ? "page" : undefined} aria-expanded={isGrupo ? on : undefined} onClick={() => { sfx("tap"); if (!isGrupo || on) setMenu(false); }}>
-                      <NavIcon k={n.k} /><span>{n.l}</span>
-                      {isGrupo && <svg className="ic chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d={on ? "M6 15l6-6 6 6" : "M9 6l6 6-6 6"} /></svg>}
-                    </Link>
-                    {isGrupo && on && <div className="sub-nav">{SUB.filter(([h]) => canAccess(U.role, h)).map(([h, l]) => <Link key={h} className={`key sub ${cur(h) ? "on" : ""}`} href={h} onClick={() => { sfx("tap"); setMenu(false); }}>{l}</Link>)}</div>}
+                  <div key={g} className="side-grp" role="group" aria-label={gl}>
+                    <div className="side-grp-t" aria-hidden="true">{gl}</div>
+                    {itens.map(n => {
+                      const isGrupo = n.k === "financeiro";
+                      const on = isGrupo ? finOpen : cur(n.href) || (n.k === "quadro" && path.startsWith("/os/"));
+                      return (
+                        <div key={n.k} style={{ display: "contents" }}>
+                          <Link className={`key ${on ? "on" : ""}`} href={n.href} aria-current={on ? "page" : undefined} aria-expanded={isGrupo ? on : undefined} onClick={() => { sfx("tap"); if (!isGrupo || on) setMenu(false); }}>
+                            <NavIcon k={n.k} /><span>{n.l}</span>
+                            {isGrupo && <svg className="ic chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d={on ? "M6 15l6-6 6 6" : "M9 6l6 6-6 6"} /></svg>}
+                          </Link>
+                          {isGrupo && on && <div className="sub-nav">{SUB.filter(([h]) => canAccess(U.role, h)).map(([h, l]) => <Link key={h} className={`key sub ${cur(h) ? "on" : ""}`} href={h} onClick={() => { sfx("tap"); setMenu(false); }}>{l}</Link>)}</div>}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
             </nav>
-            {/* só no celular: o que sai da barra do topo vem para o fim do menu */}
+            {/* Configurações no pé do menu; no celular, também o tema e o som (que saem da barra do topo) */}
             <div className="side-extra">
-              {master && <Link className={`key ${cur("/config") ? "on" : ""}`} href="/config" onClick={() => { sfx("tap"); setMenu(false); }}>{IGEAR}<span>Configurações</span></Link>}
+              {master && <Link className={`key side-cfg ${cur("/config") ? "on" : ""}`} href="/config" onClick={() => { sfx("tap"); setMenu(false); }}>{IGEAR}<span>Configurações</span></Link>}
               <div className="row side-prefs">
                 <div className="theme" role="group" aria-label="Tema">
                   {(["light", "dark"] as const).map(t => (
