@@ -22,10 +22,10 @@ export function eanOk(e: string | null | undefined): boolean {
   return (10 - (sum % 10)) % 10 === ck;
 }
 
-/** Margem em % inteiro: (preço − custo) ÷ preço. null quando não há preço. */
-export function margem(custo: number | string | null | undefined, preco: number | string | null | undefined): number | null {
+/** Markup em % inteiro: acréscimo sobre o custo, (preço − custo) ÷ custo. null quando não há custo ou preço. */
+export function markup(custo: number | string | null | undefined, preco: number | string | null | undefined): number | null {
   const c = Number(custo) || 0, p = Number(preco) || 0;
-  return p ? Math.round(((p - c) / p) * 100) : null;
+  return c && p ? Math.round(((p - c) / c) * 100) : null;
 }
 
 /** Resumo das características: "5W30 · API SN · 1L", "Aplicação: VW, Fiat", "Tipo: Arrefecimento"… */
