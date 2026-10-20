@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server.ts";
 import { FOTOS, TIPOS, dtFull, fmtFone } from "@/lib/labels.ts";
+import { loadCustomers } from "@/lib/customers.ts";
 import { PrintBar } from "./PrintBar.tsx";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ interface OS {
   id: string; number: number; plate: string; make: string | null; model: string | null; year: string | null; color: string | null;
   fuel: string | null; km: string | null; entry_type: string; entered_at: string; exited_at: string | null;
   customer_complaint: string | null; service_description: string | null;
-  customers: { name: string; phone: string } | null; technicians: { name: string } | null;
+  customer_id: string | null; technicians: { name: string } | null;
 }
 
 const SECS: [string, string][] = [["avarias", "Avarias registradas"], ["pecas", "Peças"], ["servicos", "Fotos do serviço executado"]];
@@ -71,7 +72,7 @@ export default async function PastaPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const sb = await createClient();
   const { data } = /^[0-9a-f-]{36}$/i.test(id)
-    ? await sb.from("service_orders").select("id, number, plate, make, model, year, color, fuel, km, entry_type, entered_at, exited_at, customer_complaint, service_description, customers(name, phone), technicians(name)").eq("id", id).maybeSingle()
+    ? await sb.from("service_orders").select("id, number, plate, make, model, year, color, fuel, km, entry_type, entered_at, exited_at, customer_complaint, service_description, customer_id, technicians(name)").eq("id", id).maybeSingle()
     : { data: null };
   const o = data as unknown as OS | null;
   if (!o) {
@@ -84,7 +85,8 @@ export default async function PastaPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  const [{ data: photos }, { data: records }, { data: shop }] = await Promise.all([
+  const [[cli], { data: photos }, { data: records }, { data: shop }] = await Promise.all([
+    loadCustomers(sb, [o.customer_id]),
     sb.from("service_order_photos").select("position, storage_path").eq("service_order_id", id),
     sb.from("service_order_records").select("id, tab, storage_path, mime, description, created_at").eq("service_order_id", id).order("created_at"),
     sb.from("shops").select("name").maybeSingle(),
@@ -144,7 +146,7 @@ export default async function PastaPage({ params }: { params: Promise<{ id: stri
           ]} />
           <div className="two">
             <div><h3 className="sec">Cliente</h3>
-              <KV cols={2} items={[["Nome", o.customers?.name], ["Celular", fmtFone(o.customers?.phone), true]]} /></div>
+              <KV cols={2} items={cli?.phone ? [["Nome", cli.name], ["Celular", fmtFone(cli.phone), true]] : [["Nome", cli?.name]]} /></div>
             <div><h3 className="sec">Datas</h3>
               <KV cols={2} items={[["Entrada", dtFull(o.entered_at), true], ["Saída", o.exited_at ? dtFull(o.exited_at) : "Em aberto", true], ["Responsável", o.technicians?.name]]} /></div>
           </div>

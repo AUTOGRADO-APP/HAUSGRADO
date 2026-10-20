@@ -1,7 +1,7 @@
 -- Testes das regras do banco (RLS, pagamento, desconto, compras, comissões, portal).
 -- Rodar SÓ no banco LOCAL (supabase start → supabase db reset), nunca na produção: cria usuários de teste.
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/regras_test.sql
--- Resultado esperado: linhas T1..T71 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
+-- Resultado esperado: linhas T1..T73 conforme o texto de cada uma; os ERROR são esperados (bloqueios funcionando).
 
 \set ON_ERROR_STOP 0
 insert into auth.users (id, email) values ('11111111-1111-4111-8111-111111111111','master@x'),('22222222-2222-4222-8222-222222222222','admin@x'),('33333333-3333-4333-8333-333333333333','atend@x'),('44444444-4444-4444-8444-444444444444','outro@x');
@@ -175,7 +175,9 @@ select apply_quote_discount('00000000-0000-4000-8000-0000000000f1', 1, '1234'); 
 select register_receipt('00000000-0000-4000-8000-0000000000e1', jsonb_build_array(jsonb_build_object('method','pix','amount', os_total('00000000-0000-4000-8000-0000000000e1'))), null); -- falha (mecânico não recebe)
 update customers set name = 'X' where id = '00000000-0000-4000-8000-0000000000c1';      -- não altera (RLS)
 insert into customers (name, phone) values ('Cliente do mecânico', '61900001111');
-select 'T54 mecânico cadastra cliente mas não edita (1, Mariana Souza)' t, (select count(*) from customers where name = 'Cliente do mecânico'), (select name from customers where id = '00000000-0000-4000-8000-0000000000c1');
+select 'T54 mecânico cadastra cliente mas não edita (1, Mariana Souza)' t, (select count(*) from customer_names where name = 'Cliente do mecânico'), (select name from customer_names where id = '00000000-0000-4000-8000-0000000000c1');
+select 'T72 mecânico não lê telefone/CPF do cliente, só o nome (0, 4, 0)' t, (select count(*) from customers), (select count(*) from customer_names), (select count(*) from customer_names where name = 'Secreto');
+select 'T73 Quadro do mecânico: todos os cartões com nome, sem telefone (3, 3, 0)' t, count(*), count(customer_name), count(customer_phone) from v_board;
 delete from service_orders where id = '00000000-0000-4000-8000-0000000000e1';           -- não apaga (RLS)
 -- ===== SERVIÇOS A EXECUTAR (T69–T71): o mecânico vê os itens sem preço e marca feito =====
 select 'T69 mecânico vê os itens do orçamento aprovado sem preço (1, Check list viagem)' t, count(*), min(description) from os_tasks('00000000-0000-4000-8000-0000000000e3');

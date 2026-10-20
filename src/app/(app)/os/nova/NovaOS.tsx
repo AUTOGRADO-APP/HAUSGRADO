@@ -117,9 +117,11 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
     setBusy(true);
     try {
       if (cid === "__novo") {
-        const { data, error } = await sb.from("customers").insert({ shop_id: shopId, name: d.novoNome.trim(), phone: tel }).select("id").single();
+        // id gerado aqui: o mecânico cadastra o cliente, mas não lê a tabela de volta (RLS)
+        const id = crypto.randomUUID();
+        const { error } = await sb.from("customers").insert({ id, shop_id: shopId, name: d.novoNome.trim(), phone: tel });
         if (error) throw error;
-        cid = data.id as string;
+        cid = id;
       }
       const veh = { make: d.marca.trim() || null, model: d.modelo.trim() || null, year: d.ano.trim() || null, color: d.cor.trim() || null, fuel: d.combustivel.trim() || null };
       const { data: v, error: ev } = await sb.from("vehicles")
@@ -235,7 +237,7 @@ export function NovaOS({ shopId, clientes, agenda, veiculo, clienteInicial }: {
               <select className="input" id="d-cli" value={d.clienteId} onChange={e => set("clienteId", e.target.value)}>
                 <option value="">— escolha —</option>
                 <option value="__novo">+ Cadastrar novo cliente</option>
-                {ordenados.map(c => <option key={c.id} value={c.id}>{c.name} · {fmtFone(c.phone)}</option>)}
+                {ordenados.map(c => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${fmtFone(c.phone)}` : ""}</option>)}
               </select></label>
             {d.clienteId === "__novo" && (
               <div className="stack" style={{ marginTop: 10 }}>
