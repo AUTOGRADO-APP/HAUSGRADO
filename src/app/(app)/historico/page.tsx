@@ -2,13 +2,14 @@ import { createClient, getMe } from "@/lib/supabase/server.ts";
 import { isOffice } from "@/lib/permissions.ts";
 import { quoteTotals } from "@/lib/rules.ts";
 import { ymd } from "@/lib/labels.ts";
+import { byId, loadCustomers } from "@/lib/customers.ts";
 import { Historico, type HistRow } from "./Historico.tsx";
 
 export const dynamic = "force-dynamic";
 
 interface OSDb {
   id: string; number: number; plate: string; make: string | null; model: string | null; entry_type: string;
-  entered_at: string; exited_at: string | null; customers: { name: string } | null;
+  entered_at: string; exited_at: string | null; customer_id: string | null;
 }
 interface QDb {
   id: string; service_order_id: string; status: string; discount: number; created_at: string;
@@ -17,14 +18,16 @@ interface QDb {
 
 export default async function HistoricoPage() {
   const sb = await createClient();
-  const [{ data: oss, error }, { data: qs }] = await Promise.all([
+  const [{ data: oss, error }, { data: qs }, clis] = await Promise.all([
     sb.from("service_orders")
-      .select("id, number, plate, make, model, entry_type, entered_at, exited_at, customers(name)")
+      .select("id, number, plate, make, model, entry_type, entered_at, exited_at, customer_id")
       .eq("status", "finalizado").order("exited_at", { ascending: false }),
     sb.from("quotes")
       .select("id, service_order_id, status, discount, created_at, quote_items(kind, qty, unit_price)")
       .not("service_order_id", "is", null).neq("status", "recusado").order("created_at", { ascending: false }),
+    loadCustomers(sb),
   ]);
+  const cli = byId(clis);
   // Mesma regra de os_total(): o orçamento não recusado mais recente da O.S.
   const orc: Record<string, { total: number; aprovado: boolean }> = {};
   for (const q of (qs ?? []) as unknown as QDb[]) {
@@ -34,7 +37,7 @@ export default async function HistoricoPage() {
   }
   const rows: HistRow[] = ((oss ?? []) as unknown as OSDb[]).map(o => ({
     id: o.id, number: o.number, plate: o.plate, veiculo: [o.make, o.model].filter(Boolean).join(" "),
-    cliente: o.customers?.name ?? "—", tipo: o.entry_type, entered_at: o.entered_at, exited_at: o.exited_at,
+    cliente: (o.customer_id && cli.get(o.customer_id)?.name) || "—", tipo: o.entry_type, entered_at: o.entered_at, exited_at: o.exited_at,
     saida: o.exited_at ? ymd(new Date(o.exited_at)) : "",
     total: orc[o.id]?.total ?? null, aprovado: !!orc[o.id]?.aprovado,
   }));

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient, getMe } from "@/lib/supabase/server.ts";
 import { quoteTotals, type ShopFees } from "@/lib/rules.ts";
+import { loadCustomers } from "@/lib/customers.ts";
 import { OSDetail, type OSData, type OSRecord, type OSPhoto, type OSHist, type OSQuote, type OSTech, type OSTask } from "./OSDetail.tsx";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const sb = await createClient();
   const me = await getMe();
   const { data: os } = /^[0-9a-f-]{36}$/i.test(id)
-    ? await sb.from("service_orders").select("*, customers(name, phone)").eq("id", id).maybeSingle()
+    ? await sb.from("service_orders").select("*").eq("id", id).maybeSingle()
     : { data: null };
   if (!os) {
     return (
@@ -22,7 +23,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     );
   }
 
-  const [{ data: photos }, { data: records }, { data: hist }, { data: techs }, { data: quotes }, { data: shop }, { data: pw }, { data: total }, { data: tasks }] = await Promise.all([
+  const [[c], { data: photos }, { data: records }, { data: hist }, { data: techs }, { data: quotes }, { data: shop }, { data: pw }, { data: total }, { data: tasks }] = await Promise.all([
+    loadCustomers(sb, [os.customer_id]),
     sb.from("service_order_photos").select("id, position, storage_path").eq("service_order_id", id),
     sb.from("service_order_records").select("id, tab, storage_path, mime, file_name, description, created_at").eq("service_order_id", id).order("created_at"),
     sb.from("service_order_history").select("id, text, created_by_name, created_at").eq("service_order_id", id).order("created_at"),
@@ -49,7 +51,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   } : null;
 
   const s = shop as (ShopFees & { name: string; portal_base_url: string | null }) | null;
-  const c = (os as { customers: { name: string; phone: string } | null }).customers;
   const data: OSData = {
     id: os.id, number: os.number, plate: os.plate, make: os.make, model: os.model, year: os.year, color: os.color, fuel: os.fuel,
     km: os.km, fuel_level: os.fuel_level, entry_type: os.entry_type, status: os.status, entered_at: os.entered_at, exited_at: os.exited_at,

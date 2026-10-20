@@ -1,4 +1,5 @@
 import { createClient, getMe } from "@/lib/supabase/server.ts";
+import { loadCustomers } from "@/lib/customers.ts";
 import { NovaOS, type NovaCliente, type NovaAgenda, type NovaVeiculo } from "./NovaOS.tsx";
 
 export const dynamic = "force-dynamic";
@@ -7,7 +8,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
   const sp = await searchParams;
   const sb = await createClient();
   const me = await getMe();
-  const { data: clientes } = await sb.from("customers").select("id, name, phone").order("name");
+  const clientes = await loadCustomers(sb);
 
   let agenda: NovaAgenda | null = null;
   let veiculo: NovaVeiculo | null = null;
@@ -22,7 +23,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
 
   return (
     <main id="view">
-      <NovaOS shopId={me!.shop_id} clientes={(clientes ?? []) as NovaCliente[]} agenda={agenda} veiculo={veiculo}
+      <NovaOS shopId={me!.shop_id} clientes={clientes as NovaCliente[]} agenda={agenda} veiculo={veiculo}
         clienteInicial={agenda?.customer_id ?? sp.cliente ?? ""} />
     </main>
   );

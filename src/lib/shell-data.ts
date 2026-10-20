@@ -3,6 +3,7 @@ import { createClient, type Me } from "./supabase/server.ts";
 import { addDays, ymd } from "./labels.ts";
 import { estoqueBaixo } from "./estoque.ts";
 import { isFin } from "./permissions.ts";
+import { byId, loadCustomers } from "./customers.ts";
 import type { ShellData } from "./types.ts";
 
 /** Dados do topo (LCD, sino e lembretes) carregados a cada navegação. */
@@ -14,7 +15,7 @@ export async function loadShell(me: Me): Promise<ShellData> {
   const [board, shop, appts, contas, rec, prods] = await Promise.all([
     sb.from("v_board").select("status, status_since"),
     sb.from("shops").select("name").maybeSingle(),
-    sb.from("appointments").select("id, date, time, plate, reason, reminder_sent_at, status, customers(name, phone)").in("date", [hoje, am]).eq("status", "agendado").order("time"),
+    sb.from("appointments").select("id, date, time, plate, reason, reminder_sent_at, status, customer_id").in("date", [hoje, am]).eq("status", "agendado").order("time"),
     fin ? sb.from("expenses").select("id, description, category, amount, due_date, payment_code, paid, paid_on, source, purchase_id").eq("paid", false).neq("source", "fee").lte("due_date", am).order("due_date")
         : Promise.resolve({ data: [] as never[] }),
     fin ? sb.from("receipts").select("total").gte("received_at", mesIni + "T00:00:00-03:00") : Promise.resolve({ data: [] as never[] }),
@@ -25,8 +26,9 @@ export async function loadShell(me: Me): Promise<ShellData> {
     .filter(p => estoqueBaixo(p) || p.stock_qty < 0);
   const rows = (board.data ?? []) as { status: string; status_since: string }[];
   const pat = rows.filter(r => r.status !== "finalizado");
-  type A = { id: string; date: string; time: string; plate: string | null; reason: string | null; reminder_sent_at: string | null; customers: { name: string; phone: string } | null };
+  type A = { id: string; date: string; time: string; plate: string | null; reason: string | null; reminder_sent_at: string | null; customer_id: string | null };
   const ap = (appts.data ?? []) as unknown as A[];
+  const cli = byId(await loadCustomers(sb, ap.map(a => a.customer_id)));
   const recs = (rec.data ?? []) as { total: number }[];
   const fat = recs.reduce((a, r) => a + Number(r.total), 0);
   return {
@@ -36,7 +38,7 @@ export async function loadShell(me: Me): Promise<ShellData> {
     servico: pat.filter(r => r.status === "servico").length,
     parados: pat.filter(r => (Date.now() - new Date(r.status_since).getTime()) / 864e5 >= 3).length,
     hojeAgendados: ap.filter(a => a.date === hoje).length,
-    amanha: ap.filter(a => a.date === am).map(a => ({ id: a.id, date: a.date, time: a.time.slice(0, 5), plate: a.plate, reason: a.reason, reminder_sent_at: a.reminder_sent_at, customer_name: a.customers?.name ?? "Sem cliente", customer_phone: a.customers?.phone ?? "" })),
+    amanha: ap.filter(a => a.date === am).map(a => ({ id: a.id, date: a.date, time: a.time.slice(0, 5), plate: a.plate, reason: a.reason, reminder_sent_at: a.reminder_sent_at, customer_name: (a.customer_id && cli.get(a.customer_id)?.name) || "Sem cliente", customer_phone: (a.customer_id && cli.get(a.customer_id)?.phone) || "" })),
     contas: ((contas.data ?? []) as ShellData["contas"]).map(c => ({ ...c, amount: Number(c.amount) })),
     estoqueBaixo: baixos,
     fatMes: fat, ticketMes: recs.length ? fat / recs.length : 0,

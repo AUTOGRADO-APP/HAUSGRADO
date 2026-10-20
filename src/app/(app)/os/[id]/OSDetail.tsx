@@ -264,16 +264,16 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
             <div className="os-quick">
               <span className="oq-cli">
                 <b>{os.customer_name || "Sem cliente"}</b>
-                {fone && <a className="mono" href={`tel:+55${fone.replace(/^55/, "")}`} aria-label={`Ligar para ${os.customer_name}`}>{fmtFone(os.customer_phone)}</a>}
-                {waOi && <a className="key sm" href={waOi} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
+                {office && fone && <a className="mono" href={`tel:+55${fone.replace(/^55/, "")}`} aria-label={`Ligar para ${os.customer_name}`}>{fmtFone(os.customer_phone)}</a>}
+                {office && waOi && <a className="key sm" href={waOi} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
               </span>
               {os.status === "finalizado"
                 ? <span className="oq-st">Finalizada em <b className="mono">{dt(os.exited_at)}</b></span>
                 : <span className={`oq-st ${naEtapa >= 3 ? "late" : ""}`} suppressHydrationWarning>
                     {ST_LABEL[os.status]} há <b className="mono" suppressHydrationWarning>{fmtDias(naEtapa) === "—" ? "menos de 1 h" : fmtDias(naEtapa)}</b>{naEtapa >= 3 ? " · parado" : ""}</span>}
-              <span className={`oq-orc ${qStatus === "aprovado" ? "ok" : qStatus === "recusado" ? "bad" : ""}`}>
-                {qStatus ? <>Orçamento {ORC_ST[qStatus].toLowerCase()}{quote && office ? <> · <b className="mono">{brl(quote.total)}</b></> : null}</> : "Sem orçamento"}
-              </span>
+              {office && <span className={`oq-orc ${qStatus === "aprovado" ? "ok" : qStatus === "recusado" ? "bad" : ""}`}>
+                {qStatus ? <>Orçamento {ORC_ST[qStatus].toLowerCase()}{quote ? <> · <b className="mono">{brl(quote.total)}</b></> : null}</> : "Sem orçamento"}
+              </span>}
             </div>
           </div>
           <div style={{ marginLeft: "auto" }} className="row">
@@ -348,7 +348,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
         </div>
 
         <aside className="stack">
-          <section className="panel">
+          {office && <section className="panel">
             <div className="ph"><h2>Acesso do cliente</h2><span className="live"><span className="dot" />AO VIVO</span></div>
             <div className="stack" style={{ gap: 8 }}>
               <div className="hint">O cliente acompanha a O.S. pelo link, com fotos e orçamento. Senha: celular com DDD, só números{os.customer_phone ? ` (${digits(os.customer_phone)})` : ""}.</div>
@@ -361,7 +361,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
               </div>
               <a className="key" href={`/c/${os.portal_token}`} target="_blank" rel="noopener noreferrer">Ver como o cliente vê</a>
             </div>
-          </section>
+          </section>}
 
           {office && <section className="panel">
             <div className="ph"><h2>Orçamento</h2>

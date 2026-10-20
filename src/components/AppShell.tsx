@@ -186,7 +186,7 @@ function LembPanel({ data, onClose }: { data: ShellData; onClose: () => void }) 
                     {a.reminder_sent_at && <span className="chip ok">Lembrete enviado {new Date(a.reminder_sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>}
                   </div>
                   {a.reason && <div className="muted">{a.reason}</div>}
-                  <div className="row"><a className={`key ${a.reminder_sent_at ? "" : "accent"} sm`} {...(wa ? { href: wa, target: "_blank", rel: "noopener" } : { "aria-disabled": true })} onClick={() => sent(a.id)}>{a.reminder_sent_at ? "Enviar de novo" : "Enviar lembrete no WhatsApp"}</a></div>
+                  {wa && <div className="row"><a className={`key ${a.reminder_sent_at ? "" : "accent"} sm`} href={wa} target="_blank" rel="noopener" onClick={() => sent(a.id)}>{a.reminder_sent_at ? "Enviar de novo" : "Enviar lembrete no WhatsApp"}</a></div>}
                 </div>
               );
             }) : <div className="empty">Nenhum agendamento para amanhã</div>}

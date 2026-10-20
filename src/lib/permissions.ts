@@ -2,7 +2,8 @@
 //   Master        tudo.
 //   Administrador tudo, menos Configurações e excluir O.S., orçamentos e clientes.
 //   Atendente     sem Gestão, Despesas, Comissões, Metas e Calendário financeiro.
-//   Mecânico      como o Atendente, mas sem Financeiro (nem receber pagamento), Orçamentos e Clientes.
+//   Mecânico      como o Atendente, mas sem Financeiro (nem receber pagamento), Orçamentos e Clientes
+//                 (na O.S. vê só o nome do cliente: sem telefone, WhatsApp, link do portal nem orçamento).
 import type { Role } from "./rules.ts";
 
 export interface NavItem { href: string; label: string; roles: Role[]; children?: NavItem[] }
