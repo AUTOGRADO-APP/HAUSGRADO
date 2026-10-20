@@ -229,7 +229,7 @@ insert into quote_items (quote_id, kind, description, unit_cost, unit_price) val
 insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'peca', 'No limite', 100, 130);
 insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'peca', 'Garantia', 100, 0);
 insert into quote_items (quote_id, kind, description, unit_cost, unit_price) values ('00000000-0000-4000-8000-0000000000f9', 'mao', 'Mão de obra', 100, 10);
-select 'T62 atendente: peça abaixo do mínimo barrada; no limite, R$ 0 e mão de obra passam (3: Garantia, Mão de obra, No limite)' t, count(*), string_agg(description, ', ' order by description) from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9';
+select 'T62 atendente: peça abaixo do markup mínimo barrada; no limite, R$ 0 e mão de obra passam (3: Garantia, Mão de obra, No limite)' t, count(*), string_agg(description, ', ' order by description) from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9';
 update quote_items set unit_cost = 120 where quote_id = '00000000-0000-4000-8000-0000000000f9' and description = 'No limite';  -- falha (custo sobe, preço fica abaixo)
 update quote_items set description = 'No limite!' where quote_id = '00000000-0000-4000-8000-0000000000f9' and description = 'No limite';
 select 'T63 custo maior barrado; editar só a descrição passa (100.00, 130.00, No limite!)' t, unit_cost, unit_price, description from quote_items where quote_id = '00000000-0000-4000-8000-0000000000f9' and kind = 'peca' and unit_price > 0;

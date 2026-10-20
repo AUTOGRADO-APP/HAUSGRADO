@@ -164,7 +164,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
       if (vz) await replace(vz.id, patch); else await insert({ kind: "peca", ...patch });
     }
     const disp = (x.stock_qty ?? 0) - (x.reserved ?? 0), nova = (ex?.qty ?? 0) + 1;
-    if (ajustado) toast(`${x.name}: o preço do cadastro fica abaixo da margem mínima de ${pct(minPct)}. Entrou por ${brl(minPartPrice(Number(x.cost) || 0, minPct))}.`);
+    if (ajustado) toast(`${x.name}: o preço do cadastro fica abaixo do markup mínimo de ${pct(minPct)}. Entrou por ${brl(minPartPrice(Number(x.cost) || 0, minPct))}.`);
     else if (x.stock_qty != null && nova > disp) toast(`${x.name} adicionada · estoque disponível: ${String(Math.max(0, disp)).replace(".", ",")}. Confira antes de prometer a peça.`);
     else toast(`${x.name} adicionada ao orçamento`, { sound: "ok" });
   }
@@ -246,7 +246,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
   const barrado = () => {
     const i = invalid[0];
     if (!i) return false;
-    toast(`${i.description || "Peça sem descrição"}: preço abaixo da margem mínima de ${pct(minPct)}. Mínimo: ${brl(minPartPrice(i.unit_cost, minPct))}.`, { err: true });
+    toast(`${i.description || "Peça sem descrição"}: preço abaixo do markup mínimo de ${pct(minPct)}. Mínimo: ${brl(minPartPrice(i.unit_cost, minPct))}.`, { err: true });
     return true;
   };
   async function go(path: string) { if (barrado()) return; await flush(); router.push(path); }
@@ -280,7 +280,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
         <div className="tbl-wrap"><table className="orc-itens">
           <thead><tr>
             <th style={{ width: 1 }}>Tipo</th><th>Descrição</th><th className="num" style={{ width: 58 }}>Qtd</th>
-            <th className="num" style={{ width: 92 }}>Custo un.</th><th className="num" style={{ width: 70 }}>Margem</th>
+            <th className="num" style={{ width: 92 }}>Custo un.</th><th className="num" style={{ width: 70 }}>Markup</th>
             <th className="num" style={{ width: 96 }}>Preço</th><th className="num" style={{ width: 1 }}>Subtotal</th><th style={{ width: 1 }}></th>
           </tr></thead>
           <tbody>
@@ -296,14 +296,14 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
                   <input className="it-in" ref={el => { if (el) inputs.current.set(i.id, el); else inputs.current.delete(i.id); }}
                     aria-label="Descrição" readOnly={locked} value={i.description} placeholder="Descrição" onChange={e => edit(i.id, "description", e.target.value)} />
                   {i.details && <div className="hint" style={{ padding: "2px 8px 0" }}>{i.details}</div>}
-                  {bad && <div className="it-err" role="alert">Abaixo da margem mínima de {pct(minPct)}. Preço mínimo: <b className="mono">{brl(minPartPrice(i.unit_cost, minPct))}</b></div>}
+                  {bad && <div className="it-err" role="alert">Abaixo do markup mínimo de {pct(minPct)}. Preço mínimo: <b className="mono">{brl(minPartPrice(i.unit_cost, minPct))}</b></div>}
                 </td>
                 <td className="it-v"><input className="it-in" aria-label="Quantidade" readOnly={locked} inputMode="decimal" style={{ textAlign: "right" }} value={i.qtyTxt} onChange={e => edit(i.id, "qty", e.target.value)} /></td>
                 {peca ? <>
                   <td className="it-v"><input className="it-in" aria-label="Custo unitário" readOnly={locked || cad} inputMode="decimal" style={{ textAlign: "right" }}
                     title={cad ? "Custo do cadastro do produto" : undefined} value={i.costTxt} onChange={e => edit(i.id, "unit_cost", e.target.value)} /></td>
-                  <td className="it-v"><input className={`it-in${bad ? " bad" : ""}`} aria-label="Margem (%)" readOnly={locked || !(i.unit_cost > 0)} inputMode="decimal" style={{ textAlign: "right" }}
-                    placeholder="—" title={i.unit_cost > 0 ? "Margem sobre o custo (%): preço = custo × (1 + margem)" : "Informe o custo para calcular pela margem"}
+                  <td className="it-v"><input className={`it-in${bad ? " bad" : ""}`} aria-label="Markup (%)" readOnly={locked || !(i.unit_cost > 0)} inputMode="decimal" style={{ textAlign: "right" }}
+                    placeholder="—" title={i.unit_cost > 0 ? "Markup sobre o custo (%): preço = custo × (1 + markup)" : "Informe o custo para calcular pelo markup"}
                     value={i.unit_cost > 0 ? i.marginTxt : ""} onChange={e => edit(i.id, "margin", e.target.value)} /></td>
                 </> : <>
                   <td className="it-v num na"><span className="muted">—</span></td>
@@ -317,7 +317,7 @@ export function Editor({ bundle, osList, produtos, servicos, hasPassword, canDel
             })}
           </tbody>
         </table></div>
-        <p className="hint" style={{ margin: "8px 0 0" }}>{minPct > 0 ? `Margem mínima para peças: ${pct(minPct)} sobre o custo. ` : ""}Custo e margem são só da oficina: não aparecem no PDF, no WhatsApp nem no link do cliente.</p>
+        <p className="hint" style={{ margin: "8px 0 0" }}>{minPct > 0 ? `Markup mínimo para peças: ${pct(minPct)} sobre o custo. ` : ""}Custo e markup são só da oficina: não aparecem no PDF, no WhatsApp nem no link do cliente.</p>
         {!locked && <div className="row" style={{ marginTop: 12 }}>
           <button className="key" onClick={() => void insert({ kind: "peca", description: "", unit_price: 0 }, true)}>+ Peça</button>
           <button className="key" onClick={() => void insert({ kind: "mao", description: "Mão de obra", unit_price: 0 }, true)}>+ Mão de obra</button>

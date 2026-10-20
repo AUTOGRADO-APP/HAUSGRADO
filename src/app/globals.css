@@ -502,7 +502,7 @@ table.orc-itens td.na{color:var(--muted)}
 .it-err{color:var(--danger);font-size:9pt;font-weight:600;padding:3px 8px 0}
 /* notebook e 720p (painel estreito): cada item em duas linhas
    [tipo | descrição ............ | ×]
-   [qtd | custo | margem | preço | subtotal] */
+   [qtd | custo | markup | preço | subtotal] */
 @media (min-width:641px) and (max-width:1500px){
   .tbl-wrap:has(table.orc-itens){overflow:visible}
   table.orc-itens{display:block;border-spacing:0}
@@ -717,7 +717,7 @@ body:has(.side) .lcd-tick{flex:1 1 auto;width:auto;max-width:none;min-width:260p
   input[type=date].input,input[type=datetime-local].input{min-width:0;width:100%;padding-inline:12px}
 
   /* itens editáveis do orçamento e da compra: cada linha vira um cartão
-     orçamento: [tipo ......... ×] [descrição] [qtd | custo | margem] [preço | subtotal]  (mão de obra: [qtd | preço | subtotal])
+     orçamento: [tipo ......... ×] [descrição] [qtd | custo | markup] [preço | subtotal]  (mão de obra: [qtd | preço | subtotal])
      compra:    [descrição .... ×] [qtd | valor | subtotal] */
   .tbl-wrap:has(table.orc-itens),.tbl-wrap:has(table.cp-itens){overflow:visible}
   table.orc-itens,table.cp-itens{display:block;border-spacing:0}
