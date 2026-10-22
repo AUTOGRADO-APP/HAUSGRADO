@@ -1,7 +1,7 @@
 "use client";
 // Detalhe da O.S. (seção 7.5). Visual e textos do protótipo (vOS / mediaItem).
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client.ts";
 import { brl, STATUSES, type Role, type ShopFees, type Status } from "@/lib/rules.ts";
@@ -14,6 +14,7 @@ import { Plate } from "@/components/Plate.tsx";
 import { PaymentModal } from "@/components/PaymentModal.tsx";
 import { MicButton, juntarDitado } from "@/components/MicButton.tsx";
 import { PhotoSlot } from "@/components/os-slot.tsx";
+import { PhotoViewer } from "@/components/PhotoViewer.tsx";
 
 export interface OSData {
   id: string; number: number; plate: string; make: string | null; model: string | null; year: string | null; color: string | null; fuel: string | null;
@@ -241,6 +242,14 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
   const doTab = records.filter(r => r.tab === aba).slice().reverse();
   const cont = (k: string) => records.filter(r => r.tab === k).length;
   const fotoUrl = (k: string) => photos.find(p => p.position === k)?.url ?? null;
+  // foto ampliada: de entrada (pos) ou de um registro (rec); del = abriu pelo X, já pedindo confirmação
+  const [ver, setVer] = useState<{ pos?: string; rec?: string; label: string; del?: boolean } | null>(null);
+  const slot = (k: string, l: string) => (
+    <PhotoSlot label={l} url={fotoUrl(k)} onFile={f => void trocarFoto(k, f)}
+      onView={() => setVer({ pos: k, label: l })} onRemove={() => setVer({ pos: k, label: l, del: true })} />
+  );
+  const verRec = ver?.rec ? records.find(r => r.id === ver.rec) : undefined;
+  const verSrc = ver?.pos ? fotoUrl(ver.pos) : verRec?.url ?? null;
   const conferidos = ITENS_CK.filter(([k]) => os.checklist?.[k] === true).map(([, l]) => l).join(", ");
   const segredo = segredoTxt(os.checklist);
   const [oleoK, oleoL] = FOTO_OLEO;
@@ -317,7 +326,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
                   ? <small className="ok">✓ Foto do nível registrada. Ela sai junto com as fotos de entrada na pasta do cliente.</small>
                   : <small>Toque no quadro para fotografar. A foto sai junto com as fotos de entrada na pasta do cliente.</small>}
               </div>
-              <PhotoSlot label={oleoL} url={oleoUrl} onFile={f => void trocarFoto(oleoK, f)} onRemove={() => void removerFoto(oleoK)} />
+              {slot(oleoK, oleoL)}
             </section>
           )}
           <Tarefas tasks={tasks} feito={feito} osStatus={os.status} office={office} onMarcar={(t, v) => void marcar(t, v)}
@@ -357,6 +366,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
             <div className="media-list" ref={lista}>
               {doTab.length ? doTab.map(m => (
                 <MediaItem key={m.id} m={m} pend={pend === m.id} onPend={v => setPend(v ? m.id : null)} onDelete={() => void delRec(m)}
+                  onView={() => setVer({ rec: m.id, label: m.description || `Registro em ${ABA_NOME[aba]}` })}
                   onSave={async v => { const { error } = await sb.from("service_order_records").update({ description: v }).eq("id", m.id); if (error) toast(errMsg(error), { err: true }); }} />
               )) : <div className="empty">Nenhum registro em {ABA_NOME[aba]} ainda.</div>}
             </div>
@@ -393,7 +403,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
           <section className="panel">
             <div className="ph"><h2>Fotos de entrada</h2></div>
             <div className="photos-mini">
-              {fotosEntrada.map(([k, l]) => <PhotoSlot key={k} label={l} url={fotoUrl(k)} onFile={f => void trocarFoto(k, f)} onRemove={() => void removerFoto(k)} />)}
+              {fotosEntrada.map(([k, l]) => <Fragment key={k}>{slot(k, l)}</Fragment>)}
             </div>
             {segredo && <div style={{ marginTop: 10 }} className="hint">Segredo de roda: <b>{segredo}</b></div>}
             {(conferidos || !segredo) && <div style={{ marginTop: segredo ? 4 : 10 }} className="hint">Conferido: {conferidos || "nenhum item"}</div>}
@@ -430,6 +440,12 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
         </aside>
       </div>
 
+      {ver && verSrc && (
+        <PhotoViewer src={verSrc} title={ver.label} video={verRec ? (verRec.mime ?? "").startsWith("video") : false}
+          sub={verRec ? dt(verRec.created_at) : `O.S. ${os.number} · ${os.plate}`} confirmDelete={ver.del} onClose={() => setVer(null)}
+          onReplace={ver.pos ? (f => { const k = ver.pos!; void trocarFoto(k, f); }) : undefined}
+          onDelete={() => { if (ver.pos) void removerFoto(ver.pos); else if (verRec) void delRec(verRec); }} />
+      )}
       {paying && (
         <PaymentModal os={{ id: os.id, number: os.number, plate: os.plate, make: os.make, model: os.model, customer_name: os.customer_name, total, status: os.status }}
           fees={fees} hasPassword={hasPassword} onClose={() => setPaying(false)}
@@ -448,8 +464,8 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
   );
 }
 
-function MediaItem({ m, pend, onPend, onDelete, onSave }: {
-  m: OSRecord; pend: boolean; onPend: (v: boolean) => void; onDelete: () => void; onSave: (v: string) => Promise<void>;
+function MediaItem({ m, pend, onPend, onDelete, onSave, onView }: {
+  m: OSRecord; pend: boolean; onPend: (v: boolean) => void; onDelete: () => void; onSave: (v: string) => Promise<void>; onView: () => void;
 }) {
   const [v, setV] = useState(m.description ?? "");
   const [parcial, setParcial] = useState("");
@@ -480,7 +496,7 @@ function MediaItem({ m, pend, onPend, onDelete, onSave }: {
         {!m.storage_path ? "TEXTO"
           : !m.url ? <span className="mono" style={{ color: "#fff", fontSize: "9pt" }}>SEM PRÉVIA</span>
           : isV ? <video src={m.url} controls playsInline preload="metadata" />
-          : <a href={m.url} target="_blank" rel="noopener noreferrer" style={{ display: "contents" }}><img src={m.url} alt={m.description || "Foto do registro"} /></a>}
+          : <button type="button" className="zoom" aria-label="Ampliar foto" onClick={onView}><img src={m.url} alt={m.description || "Foto do registro"} /></button>}
       </div>
       <div className="body">
         <div className="row" style={{ justifyContent: "space-between" }}>
