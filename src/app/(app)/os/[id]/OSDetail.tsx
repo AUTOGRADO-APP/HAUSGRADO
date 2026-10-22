@@ -50,6 +50,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
   const [pend, setPend] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [enviando, setEnviando] = useState(0);
+  const [comprimindo, setComprimindo] = useState<number | null>(null);   // % da compressão do vídeo atual
   const [over, setOver] = useState(false);
   const [focar, setFocar] = useState(false);
   const [ent, setEnt] = useState(toLocalInput(os.entered_at));
@@ -167,9 +168,9 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
     setEnviando(n => n + files.length);
     let ok = 0;
     for (const f of files) {
-      try { await addMediaRecord(sb, shopId, os.id, tab, f); ok++; }
+      try { await addMediaRecord(sb, shopId, os.id, tab, f, "", p => setComprimindo(Math.round(p * 100))); ok++; }
       catch (e) { toast(errMsg(e as Error), { err: true }); }
-      finally { setEnviando(n => n - 1); }
+      finally { setEnviando(n => n - 1); setComprimindo(null); }
     }
     if (!ok) return;
     await hist(`${ok} mídia${ok > 1 ? "s" : ""} adicionada${ok > 1 ? "s" : ""} em ${ABA_NOME[tab]}`);
@@ -353,7 +354,7 @@ export function OSDetail({ os, shopId, role, photos, records, history, techs, qu
               onDrop={e => { e.preventDefault(); setOver(false); void enviar(e.dataTransfer.files); }}>
               {ICAM_DROP}
               <b>Adicionar fotos e vídeos em {ABA_NOME[aba]}</b>
-              <span className="hint">{enviando ? `Enviando ${enviando} arquivo${enviando > 1 ? "s" : ""}…` : "Toque para escolher ou arraste os arquivos aqui. Depois descreva cada mídia."}</span>
+              <span className="hint">{comprimindo !== null ? `Comprimindo vídeo… ${comprimindo}%` : enviando ? `Enviando ${enviando} arquivo${enviando > 1 ? "s" : ""}…` : "Toque para escolher ou arraste os arquivos aqui. Depois descreva cada mídia."}</span>
               <input type="file" multiple accept="image/*,video/*" aria-label="Enviar mídias" onChange={e => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void enviar(f); }} />
             </label>
             <div className="row" style={{ margin: "10px 0 14px" }}>
