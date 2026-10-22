@@ -55,7 +55,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     id: os.id, number: os.number, plate: os.plate, make: os.make, model: os.model, year: os.year, color: os.color, fuel: os.fuel,
     km: os.km, fuel_level: os.fuel_level, entry_type: os.entry_type, status: os.status, entered_at: os.entered_at, exited_at: os.exited_at,
     technician_id: os.technician_id, customer_complaint: os.customer_complaint, service_description: os.service_description,
-    checklist: (os.checklist ?? {}) as Record<string, boolean>, portal_token: os.portal_token,
+    checklist: (os.checklist ?? {}) as Record<string, unknown>, portal_token: os.portal_token,
     customer_name: c?.name ?? "", customer_phone: c?.phone ?? "",
   };
   // desde quando está na etapa atual (mesma regra do Quadro: último "Status: …" do histórico, senão a entrada)

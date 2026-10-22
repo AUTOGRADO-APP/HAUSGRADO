@@ -2,8 +2,19 @@
 import type { Role, Status } from "./rules.ts";
 
 export const TIPOS: Record<string, string> = { servico: "Serviço", manutencao: "Manutenção", garantia: "Garantia" };
-export const FOTOS: [string, string][] = [["frontal", "Frontal"], ["lat_esq", "Lateral esquerda"], ["lat_dir", "Lateral direita"], ["traseira", "Traseira"], ["motor", "Cofre do motor"], ["painel", "Painel"]];
+export const FOTOS: [string, string][] = [["frontal", "Frontal"], ["lat_esq", "Lateral esquerda"], ["lat_dir", "Lateral direita"], ["traseira", "Traseira"], ["motor", "Cofre do motor"], ["painel", "Painel"], ["estepe", "Estepe"]];
+/** Foto do nível do óleo: tirada na O.S. (Serviço e Garantia) e impressa junto com as fotos de entrada. */
+export const FOTO_OLEO: [string, string] = ["oleo", "Nível do óleo"];
+export const pedeOleo = (tipo: string) => tipo === "servico" || tipo === "garantia";
+/** Itens conferidos das O.S. antigas (a Nova O.S. agora só pergunta o segredo de roda). */
 export const ITENS_CK: [string, string][] = [["estepe", "Estepe"], ["macaco", "Macaco / chave de roda"], ["triangulo", "Triângulo"], ["documento", "Documento (CRLV)"], ["multimidia", "Rádio / multimídia"], ["tapetes", "Tapetes"]];
+/** Segredo de roda, guardado no checklist da O.S. */
+export function segredoTxt(ck: Record<string, unknown> | null | undefined): string | null {
+  if (!ck || typeof ck.segredo_roda !== "boolean") return null;
+  if (!ck.segredo_roda) return "Não tem";
+  const local = typeof ck.segredo_local === "string" && ck.segredo_local.trim() ? ` · fica em: ${ck.segredo_local.trim()}` : "";
+  return `Sim${ck.chave_segredo_ok ? " · chave identificada" : ""}${local}`;
+}
 export const ORC_ST: Record<string, string> = { rascunho: "Rascunho", enviado: "Enviado ao cliente", aprovado: "Aprovado", recusado: "Recusado" };
 export const ABAS: [string, string, string][] = [["avarias", "AVARIAS", "Avarias"], ["pecas", "PEÇAS", "Peças"], ["servicos", "SERVIÇO", "Serviço"]];
 export const AG_ST: Record<string, string> = { agendado: "Agendado", atendido: "O.S. aberta", faltou: "Faltou" };

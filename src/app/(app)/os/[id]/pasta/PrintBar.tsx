@@ -13,7 +13,7 @@ export function PrintBar({ osId, number }: { osId: string; number: number }) {
           <button className="key accent" onClick={() => { sfx("tap"); window.print(); }}>Imprimir</button>
         </div>
       </div>
-      <p className="hint" style={{ margin: 0 }}>Página 1: veículo, datas, fotos de entrada e descrição do serviço. Depois: Avarias, Peças e Serviço executado, 4 registros por página. Para salvar em PDF, escolha “Salvar como PDF” na janela de impressão.</p>
+      <p className="hint" style={{ margin: 0 }}>Página 1: veículo, datas, fotos de entrada e descrição do serviço. Depois: Avarias, Peças e Serviço executado em sequência, aproveitando o espaço da folha. Para salvar em PDF, escolha “Salvar como PDF” na janela de impressão.</p>
     </section>
   );
 }
