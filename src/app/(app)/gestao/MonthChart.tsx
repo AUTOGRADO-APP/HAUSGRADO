@@ -51,11 +51,13 @@ export function MonthChart({ cur, prev, ateDia, hojeDia, nomeAnt, goal, superGoa
   const path = (a: DiaMes[]) => a.map((p, i) => `${i ? "L" : "M"}${X(p.d).toFixed(1)},${Y(p.acc).toFixed(1)}`).join("");
   const ticks: number[] = []; for (let t = 0; t <= mx + 1e-6; t += step) ticks.push(t);
   const xl = new Set([1, 5, 10, 15, 20, 25, N]); if (hojeDia) { xl.add(hojeDia); for (const d of [...xl]) if (d !== hojeDia && Math.abs(d - hojeDia) < 3) xl.delete(d); }
-  const linha = (v: number, rot: string, cls: string) => (
+  // META e SUPER META próximas: afasta os rótulos para um não escrever em cima do outro
+  const gapRot = goal && superGoal ? Math.max(0, 28 - (Y(goal) - Y(superGoal))) / 2 : 0;
+  const linha = (v: number, rot: string, cls: string, dy = 0) => (
     <g className={`mc-goal ${cls}`}>
       <line x1={L} x2={W - Rr + 6} y1={Y(v)} y2={Y(v)} />
-      <text x={W - Rr + 10} y={Y(v) - 3}>{rot}</text>
-      <text x={W - Rr + 10} y={Y(v) + 10} className="v">{brlK(v)}</text>
+      <text x={W - Rr + 10} y={Y(v) - 3 + dy}>{rot}</text>
+      <text x={W - Rr + 10} y={Y(v) + 10 + dy} className="v">{brlK(v)}</text>
     </g>
   );
 
@@ -86,8 +88,8 @@ export function MonthChart({ cur, prev, ateDia, hojeDia, nomeAnt, goal, superGoa
         {[...xl].sort((a, b) => a - b).map(d => <text key={d} x={X(d)} y={H - 10} className={`lc-ax ${d === hojeDia ? "lc-today" : ""}`} textAnchor="middle">{d === hojeDia ? "Hoje" : d}</text>)}
         {/* recebido em cada dia (escala própria, no terço de baixo) */}
         {vis.map(p => p.v > 0 && <rect key={p.k} x={X(p.d) - bw / 2} y={T + hh - (p.v / dmax) * hh * 0.35} width={bw} height={(p.v / dmax) * hh * 0.35} rx={2} className={`mc-bar ${hi === p.d ? "on" : ""}`} />)}
-        {goal ? linha(goal, "META", "") : null}
-        {superGoal && superGoal > (goal ?? 0) ? linha(superGoal, "SUPER", "sup") : null}
+        {goal ? linha(goal, "META", "", gapRot) : null}
+        {superGoal && superGoal > (goal ?? 0) ? linha(superGoal, "SUPER", "sup", -gapRot) : null}
         <line x1={hi !== null ? X(hi) : 0} x2={hi !== null ? X(hi) : 0} y1={T} y2={T + hh} className="lc-cross" visibility={hi !== null ? "visible" : "hidden"} />
         <path d={path(pv)} className="lc-prev" />
         <path d={`${path(vis)}L${X(last.d)},${T + hh}L${X(1)},${T + hh}Z`} fill="url(#mcg)" />
