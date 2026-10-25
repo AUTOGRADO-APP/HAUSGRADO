@@ -27,7 +27,8 @@ export function MetaPanel({ titulo, mes, nomeMes, fat, meta, hoje, nRec, editar 
         {editar && <Link className="key sm" href={href}>Editar metas</Link>}
       </div>
       <div className="mg-body">
-        <MetaGauge fat={fat} goal={meta.goal} superGoal={meta.super_goal} nivel={s.nivel} pctMeta={s.pctMeta} />
+        <MetaGauge fat={fat} goal={meta.goal} superGoal={meta.super_goal} nivel={s.nivel} pctMeta={s.pctMeta}
+          projecao={mes === hoje.slice(0, 7) ? s.projecao : undefined} rotulo={`Recebido em ${nomeMes.split(" ")[0].toLowerCase()}`} />
         <MetaNums meta={meta} fat={fat} mes={mes} hoje={hoje} />
       </div>
     </section>

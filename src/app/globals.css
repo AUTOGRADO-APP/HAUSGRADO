@@ -830,23 +830,27 @@ body:has(.side) .lcd-tick{flex:1 1 auto;width:auto;max-width:none;min-width:260p
 .mg{position:relative;display:grid;justify-items:center;width:100%;max-width:420px;margin-inline:auto}
 .mg-svg{width:100%;height:auto;display:block;overflow:visible}
 .mg-track{fill:none;stroke:var(--border-strong);stroke-linecap:round}
-.mg-fill{fill:none;stroke-linecap:round;transition:stroke-dasharray 1.2s cubic-bezier(.22,1,.36,1)}
-.mg-zone{fill:none;stroke:var(--accent);stroke-width:3;opacity:.35;stroke-linecap:round}
-.mg-zone.sup{stroke:var(--success);opacity:.6}
-.mg-tick{stroke:var(--muted);stroke-width:1.4;opacity:.55;stroke-linecap:round}
-.mg-mark line{stroke:var(--text);stroke-width:2.4;stroke-linecap:round}
-.mg-mark.sup line{stroke:var(--success)}
-.mg-mk-l{font-family:var(--font-ui);font-size:10px;font-weight:800;letter-spacing:.06em;fill:var(--muted)}
-.mg-mk-v{font-family:var(--font-num);font-size:11px;font-weight:700;fill:var(--text)}
-.mg-needle{transition:transform 1.2s cubic-bezier(.22,1,.36,1)}
-.mg-needle path{fill:var(--text)}
-.mg-hub{fill:var(--text)}
-.mg-hub-in{fill:var(--accent)}
-.mg-c{display:grid;justify-items:center;gap:4px;margin-top:6px;text-align:center}
-.mg-c strong{font-size:22pt;font-weight:700;line-height:1.1;color:var(--accent)}
-.mg-pct{color:var(--muted);font-size:10.5pt}
-.mg-pct b{color:var(--text)}
-.mg-c .chip{margin-top:4px}
+.mg-zone{fill:none;stroke:rgba(255,92,0,.14)}
+.mg-zone.sup{stroke:rgba(47,174,96,.18);stroke-linecap:round}
+.mg-fill{fill:none;stroke-linecap:round}
+.mg-proj{fill:none;stroke:var(--accent);stroke-opacity:.75;stroke-width:2;stroke-dasharray:1 5;stroke-linecap:round}
+.mg-tick{stroke:var(--muted);stroke-width:1.2;stroke-opacity:.35;stroke-linecap:round}
+.mg-tick.mj{stroke-opacity:.7}
+.mg-glow{fill:var(--accent);opacity:.55}
+.mg-head{fill:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
+.mg-tag rect{fill:var(--gl-halo,var(--card));stroke:var(--text);stroke-opacity:.35}
+.mg-tag text{font-family:var(--font-num);font-size:10.5px;font-weight:800;fill:var(--text)}
+.mg-tag circle{fill:var(--gl-halo,var(--card));stroke:var(--text);stroke-width:2}
+.mg-tag.sup rect{stroke:var(--success);stroke-opacity:.7}
+.mg-tag.sup text{fill:var(--success)}
+.mg-tag.sup circle{stroke:var(--success)}
+.mg-lab{font-family:var(--font-ui);font-size:12px;font-weight:700;fill:var(--muted)}
+.mg-val{font-family:var(--font-num);font-size:23px;letter-spacing:-.02em;font-weight:700;fill:var(--accent)}
+.mg-cap{fill:var(--gl-track,var(--border))}
+.mg-pct{font-family:var(--font-ui);font-size:12.5px;font-weight:600;fill:var(--muted)}
+.mg-pct-n{font-family:var(--font-num);font-weight:700;fill:var(--text)}
+.mg-proj-l{font-family:var(--font-ui);font-size:11px;font-weight:700;fill:var(--muted)}
+.mg .mg-chip{margin-top:2px}
 .mg-nums{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0}
 .mg-nums>div{background:var(--bg);border:1px solid var(--border);border-radius:1.2rem;padding:14px 16px;display:grid;gap:3px;min-width:0}
 .mg-nums dt{font-size:8.5pt;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
@@ -854,7 +858,7 @@ body:has(.side) .lcd-tick{flex:1 1 auto;width:auto;max-width:none;min-width:260p
 .mg-ok{color:var(--success);font-weight:700}
 @media (max-width:1100px){.mg-body{grid-template-columns:1fr}.mg-nums{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media (max-width:760px){.mg-nums{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:360px){.mg-nums{grid-template-columns:1fr}.mg-c strong{font-size:18pt}}
+@media (max-width:360px){.mg-nums{grid-template-columns:1fr}}
 
 /* Gestão: "Precisa de atenção", faturamento + meta e gráfico do acumulado no mês */
 .g-att-wrap{display:grid;gap:8px}.g-att-wrap>.label{padding-inline:6px}

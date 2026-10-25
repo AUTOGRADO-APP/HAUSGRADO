@@ -98,9 +98,8 @@
 .lg-sub{font-size:9.5pt;color:var(--muted);font-weight:600}
 
 /* medidor e gráfico dentro do vidro */
-.gv .mg{max-width:300px}
+.gv .mg{max-width:330px}
 .gv .mg-track{stroke:var(--gl-track)}
-.gv .mg-c strong{font-size:20pt}
 
 /* mecânicos */
 .lg-mecs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
