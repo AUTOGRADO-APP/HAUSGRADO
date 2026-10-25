@@ -165,7 +165,6 @@ export default async function GestaoPage({ searchParams }: { searchParams: Promi
 
   return (
     <main id="view" className="gv">
-      <div className="lg-amb" aria-hidden="true" />
       {err && <div className="banner"><span>Erro ao carregar a gestão: {err.message}</span></div>}
       <div className="lg-wrap">
         <section className="lg-top">

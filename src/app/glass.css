@@ -1,0 +1,114 @@
+/* Hausgrado em vidro ("liquid glass"), carregado depois do globals.css em todas as telas.
+   A identidade continua a mesma (tokens da seção 4: laranja único acento, Plus Jakarta Sans + JetBrains Mono, raios);
+   o que muda é a superfície: fundo com luz ambiente e cartões translúcidos com desfoque, borda de luz e sombra suave.
+   O desfoque fica num pseudo-elemento (::after) para não virar "containing block" de modais position:fixed dentro dos cartões. */
+:root{
+  --gl-bg:rgba(255,255,255,.52); --gl-bg-2:rgba(255,255,255,.38); --gl-well:rgba(255,255,255,.46); --gl-solid:rgba(255,255,255,.72);
+  --gl-rim:rgba(255,255,255,.95); --gl-rim-2:rgba(255,255,255,.25); --gl-line:rgba(64,61,60,.08);
+  --gl-shadow:0 1px 1px rgba(64,61,60,.04), 0 12px 40px -8px rgba(64,61,60,.16);
+  --gl-inset:inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(64,61,60,.04);
+  --gl-blur:blur(26px) saturate(185%);
+  --gl-halo:rgba(247,246,245,.9);
+  --gl-track:rgba(64,61,60,.07);
+  --gl-amb:
+    radial-gradient(38vw 34vw at 18% 6%, rgba(255,92,0,.22), transparent 70%),
+    radial-gradient(30vw 30vw at 92% 22%, rgba(255,168,96,.30), transparent 70%),
+    radial-gradient(44vw 36vw at 70% 92%, rgba(120,146,176,.26), transparent 70%),
+    radial-gradient(30vw 28vw at 8% 78%, rgba(255,140,60,.14), transparent 70%);
+}
+html[data-theme="dark"]{
+  --gl-bg:rgba(30,35,40,.5); --gl-bg-2:rgba(38,44,50,.42); --gl-well:rgba(255,255,255,.045); --gl-solid:rgba(40,46,52,.78);
+  --gl-rim:rgba(255,255,255,.22); --gl-rim-2:rgba(255,255,255,.03); --gl-line:rgba(211,218,222,.08);
+  --gl-shadow:0 1px 1px rgba(0,0,0,.2), 0 16px 48px -10px rgba(0,0,0,.55);
+  --gl-inset:inset 0 1px 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.2);
+  --gl-halo:rgba(30,35,40,.92);
+  --gl-track:rgba(211,218,222,.08);
+  --gl-amb:
+    radial-gradient(38vw 34vw at 18% 6%, rgba(255,92,0,.20), transparent 70%),
+    radial-gradient(30vw 30vw at 92% 22%, rgba(255,120,40,.12), transparent 70%),
+    radial-gradient(44vw 36vw at 70% 92%, rgba(90,130,170,.22), transparent 70%),
+    radial-gradient(30vw 28vw at 8% 78%, rgba(255,92,0,.08), transparent 70%);
+}
+@media (max-width:640px){
+  :root{--gl-amb:radial-gradient(90vw 60vw at 10% 4%, rgba(255,92,0,.2), transparent 70%),radial-gradient(80vw 70vw at 100% 55%, rgba(120,146,176,.24), transparent 70%)}
+  html[data-theme="dark"]{--gl-amb:radial-gradient(90vw 60vw at 10% 4%, rgba(255,92,0,.18), transparent 70%),radial-gradient(80vw 70vw at 100% 55%, rgba(90,130,170,.22), transparent 70%)}
+}
+
+/* luz ambiente atrás do vidro (sem ela o desfoque não aparece) */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--gl-amb)}
+
+/* superfícies de primeiro nível: vidro com desfoque */
+.panel,.stat,.kpi:not(.main),.modal,.login-card,.theme,.gear,.bell,.clock,.att,.side,.keys{
+  background:var(--gl-bg);border-color:var(--gl-line);box-shadow:var(--gl-inset),var(--gl-shadow);isolation:isolate}
+.panel,.stat,.kpi:not(.main),.modal,.login-card,.theme,.gear,.bell,.clock,.att{position:relative}
+.panel::after,.stat::after,.kpi:not(.main)::after,.modal::after,.login-card::after,.theme::after,.gear::after,.bell::after,.clock::after,.att::after,.side::after,.keys::after{
+  content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+  -webkit-backdrop-filter:var(--gl-blur);backdrop-filter:var(--gl-blur)}
+.keys{backdrop-filter:none;-webkit-backdrop-filter:none}
+/* borda de luz nos cartões grandes: mais forte no canto de cima à esquerda, como reflexo */
+.panel::before,.stat::before,.modal::before,.login-card::before,.att::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;pointer-events:none;z-index:1;
+  background:linear-gradient(150deg,var(--gl-rim),var(--gl-rim-2) 32%,transparent 55%,var(--gl-rim-2) 85%,var(--gl-rim));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.modal{background:var(--gl-solid)}
+.modal-bg{background:rgba(20,18,18,.32);-webkit-backdrop-filter:blur(6px) saturate(140%);backdrop-filter:blur(6px) saturate(140%)}
+.modal-bg.viewer{-webkit-backdrop-filter:none;backdrop-filter:none}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .panel,.stat,.kpi:not(.main),.modal,.login-card,.theme,.gear,.bell,.clock,.att,.side,.keys{background:var(--card)}
+}
+
+/* superfícies dentro dos cartões: "poços" translúcidos, sem desfoque próprio (leve para o Quadro com muitos cards) */
+.col,.mi,.tl,.ag-it,.com-card,.carac,.pk-it,.pag-total,.pag-row,.sv-card,.est-grid,.est-aj,.mg-nums>div,.cal-d,.gal figure,.mec,.linkbox,.tabs,.bal-lock,.pag-auth,.lcd:not(.ok):not(.err){
+  background:var(--gl-well);border-color:var(--gl-line);box-shadow:inset 0 1px 0 var(--gl-rim-2)}
+.pag-auth{border-color:var(--accent)}
+.bal-lock{border-color:var(--border-strong)}
+.card{background:var(--gl-solid);border-color:var(--gl-line);box-shadow:inset 0 1px 0 var(--gl-rim-2),0 2px 8px -4px rgba(64,61,60,.18)}
+td:not(.doc-a4 td){background:var(--gl-well);border-color:var(--gl-line)}
+.tk:nth-child(odd){background:var(--gl-well)}
+.meter,.hb-t,.wf-t{background:var(--gl-track)}
+.mec-share,.split-bar{background:var(--gl-track)}
+.keyline,.cal-p,.mi .pv.note,.slot .x{background:var(--gl-solid)}
+.chip:not(.ok):not(.bad):not(.doc-a4 .chip){background:var(--gl-well);border-color:var(--gl-line)}
+.empty{background:var(--gl-well);border-color:var(--gl-line)}
+.input{background:var(--gl-solid);border-color:var(--gl-line);box-shadow:inset 0 1px 2px rgba(64,61,60,.05)}
+html[data-theme="dark"] .input{box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
+.input:focus,.input:focus-visible{background:var(--input-bg)}
+.lc-lab,.mc-proj-l,.lc-dot{stroke:var(--gl-halo)}
+.lc-tip{background:rgba(64,61,60,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-radius:1.1rem;color:#F7F6F5;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 12px 30px -8px rgba(0,0,0,.35)}
+html[data-theme="dark"] .lc-tip{background:rgba(211,218,222,.86);color:#1E2328}
+
+/* menu: item ativo e hover como lente de vidro */
+.side-nav .key:hover,.side-extra>.key:hover{background:var(--gl-well)}
+.side-nav .key.on,.sub-nav .key.on,.side-extra>.key.on,.keys .key.on{background:var(--gl-solid);border-color:var(--gl-line);box-shadow:inset 0 1px 0 var(--gl-rim),0 4px 12px -6px rgba(64,61,60,.25)}
+
+/* botões em cápsula; os acesos ganham brilho e reflexo */
+.key:not(.side-nav .key):not(.sub-nav .key):not(.side-extra>.key):not(.keys .key):not(.tabs .key){border-radius:999px}
+.key:not(.side-nav .key):not(.sub-nav .key):not(.side-extra>.key):not(.keys .key):not(.tabs .key):not(.accent):not(.wa):not(.danger):not(.on){background:var(--gl-well);border-color:var(--gl-line)}
+.key:not(.side-nav .key):not(.sub-nav .key):not(.side-extra>.key):not(.keys .key):not(.tabs .key):not(.accent):not(.wa):not(.danger):hover{border-color:var(--accent)}
+.key.accent,.key.wa,.nova{box-shadow:0 6px 16px -4px rgba(255,92,0,.5),inset 0 1px 0 rgba(255,255,255,.35)}
+.key.danger{box-shadow:0 6px 16px -4px rgba(214,69,69,.45),inset 0 1px 0 rgba(255,255,255,.3)}
+.theme button.on{box-shadow:0 4px 12px -3px rgba(255,92,0,.5),inset 0 1px 0 rgba(255,255,255,.35)}
+.del{background:var(--gl-well);border-color:var(--gl-line)}
+
+/* badge de seção: mesmo quadrado laranja, com brilho */
+.ph h2::before{width:28px;height:28px;border-radius:.7rem;box-shadow:0 6px 14px -4px rgba(255,92,0,.55),inset 0 1px 0 rgba(255,255,255,.35)}
+.lcd-tick{box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 10px 30px -10px rgba(0,0,0,.45)}
+
+/* toast em vidro escuro */
+.toast:not(.err){background:rgba(64,61,60,.86);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-radius:999px;box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 12px 30px -8px rgba(0,0,0,.35)}
+html[data-theme="dark"] .toast:not(.err){background:rgba(211,218,222,.88)}
+.toast.err{border-radius:999px}
+
+@media (prefers-reduced-transparency:reduce){
+  .panel,.stat,.kpi:not(.main),.modal,.login-card,.theme,.gear,.bell,.clock,.att,.side,.keys{background:var(--card)}
+}
+@media print{
+  body::before{display:none}
+  .panel::after,.panel::before,.stat::after,.stat::before{display:none}
+  .panel,.stat{background:#fff!important;box-shadow:none!important}
+}
+
+/* cartão de destaque escuro (Entradas): vidro fumê */
+.kpi.main{background:rgba(64,61,60,.88);-webkit-backdrop-filter:var(--gl-blur);backdrop-filter:var(--gl-blur);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 16px 40px -12px rgba(40,36,34,.45)}
+html[data-theme="dark"] .kpi.main{background:rgba(211,218,222,.9)}

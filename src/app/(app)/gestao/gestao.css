@@ -1,37 +1,5 @@
-/* Gestão em vidro ("liquid glass"): só vale dentro de main.gv. Mantém os tokens da identidade (laranja único acento,
+/* Gestão em vidro ("liquid glass"): só vale dentro de main.gv; tokens --gl-* e luz ambiente vêm de app/glass.css. Mantém os tokens da identidade (laranja único acento,
    Plus Jakarta Sans + JetBrains Mono); o vidro é a superfície: translúcido, com desfoque, borda de luz e sombra suave. */
-.gv{
-  --gl-bg:rgba(255,255,255,.52); --gl-bg-2:rgba(255,255,255,.38); --gl-well:rgba(255,255,255,.46);
-  --gl-rim:rgba(255,255,255,.95); --gl-rim-2:rgba(255,255,255,.25); --gl-line:rgba(64,61,60,.08);
-  --gl-shadow:0 1px 1px rgba(64,61,60,.04), 0 12px 40px -8px rgba(64,61,60,.16);
-  --gl-inset:inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(64,61,60,.04);
-  --gl-blur:blur(26px) saturate(185%);
-  --gl-halo:rgba(247,246,245,.9);
-  --gl-track:rgba(64,61,60,.07);
-}
-html[data-theme="dark"] .gv{
-  --gl-bg:rgba(30,35,40,.5); --gl-bg-2:rgba(38,44,50,.42); --gl-well:rgba(255,255,255,.045);
-  --gl-rim:rgba(255,255,255,.22); --gl-rim-2:rgba(255,255,255,.03); --gl-line:rgba(211,218,222,.08);
-  --gl-shadow:0 1px 1px rgba(0,0,0,.2), 0 16px 48px -10px rgba(0,0,0,.55);
-  --gl-inset:inset 0 1px 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.2);
-  --gl-halo:rgba(30,35,40,.92);
-  --gl-track:rgba(211,218,222,.08);
-}
-
-/* luz ambiente atrás do vidro: laranja da marca de um lado, cinza-azulado do outro (sem ela o desfoque não aparece) */
-.lg-amb{position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:
-    radial-gradient(38vw 34vw at 18% 6%, rgba(255,92,0,.22), transparent 70%),
-    radial-gradient(30vw 30vw at 92% 22%, rgba(255,168,96,.30), transparent 70%),
-    radial-gradient(44vw 36vw at 70% 92%, rgba(120,146,176,.26), transparent 70%),
-    radial-gradient(30vw 28vw at 8% 78%, rgba(255,140,60,.14), transparent 70%)}
-html[data-theme="dark"] .lg-amb{
-  background:
-    radial-gradient(38vw 34vw at 18% 6%, rgba(255,92,0,.20), transparent 70%),
-    radial-gradient(30vw 30vw at 92% 22%, rgba(255,120,40,.12), transparent 70%),
-    radial-gradient(44vw 36vw at 70% 92%, rgba(90,130,170,.22), transparent 70%),
-    radial-gradient(30vw 28vw at 8% 78%, rgba(255,92,0,.08), transparent 70%)}
-
 .lg-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
 
 /* superfície de vidro (cartões, barra de atenção, botões em cápsula) */
@@ -133,12 +101,6 @@ html[data-theme="dark"] .lg-amb{
 .gv .mg{max-width:300px}
 .gv .mg-track{stroke:var(--gl-track)}
 .gv .mg-c strong{font-size:20pt}
-.gv .lc-grid{stroke:var(--gl-line)}
-.gv .lc-lab,.gv .mc-proj-l{stroke:var(--gl-halo)}
-.gv .lc-dot{stroke:var(--gl-halo)}
-.gv .lc-tip{background:rgba(64,61,60,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-radius:1.1rem;color:#F7F6F5;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 12px 30px -8px rgba(0,0,0,.35)}
-html[data-theme="dark"] .gv .lc-tip{background:rgba(211,218,222,.86);color:#1E2328}
 
 /* mecânicos */
 .lg-mecs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
@@ -232,9 +194,6 @@ html[data-theme="dark"] .lg-mix-bar .b,html[data-theme="dark"] .lg-mix-leg i.b{b
   .lg-wells>div:last-child{grid-column:1/-1}
   .lg-mecs{grid-template-columns:1fr}
   .lg-mec-v strong{font-size:16pt}
-  .lg-amb{background:
-    radial-gradient(90vw 60vw at 10% 4%, rgba(255,92,0,.2), transparent 70%),
-    radial-gradient(80vw 70vw at 100% 55%, rgba(120,146,176,.24), transparent 70%)}
 }
 @media (prefers-reduced-motion:reduce){.lg-att,.lg-seg>a,.lg-btn{transition:none}}
-@media print{.lg-amb,.lg-dock{display:none}.lg-card{backdrop-filter:none;-webkit-backdrop-filter:none;background:#fff;box-shadow:none}}
+@media print{.lg-dock{display:none}.lg-card{backdrop-filter:none;-webkit-backdrop-filter:none;background:#fff;box-shadow:none}}
