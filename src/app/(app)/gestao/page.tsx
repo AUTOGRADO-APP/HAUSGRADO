@@ -165,7 +165,6 @@ export default async function GestaoPage({ searchParams }: { searchParams: Promi
 
   return (
     <main id="view" className="gv">
-      <div className="lg-amb" aria-hidden="true" />
       {err && <div className="banner"><span>Erro ao carregar a gestão: {err.message}</span></div>}
       <div className="lg-wrap">
         <section className="lg-top">
@@ -203,7 +202,8 @@ export default async function GestaoPage({ searchParams }: { searchParams: Promi
           <div className="lg-hero-body">
             <div className="lg-meta">
               {metaMes
-                ? <MetaGauge fat={M.fat} goal={metaMes.goal} superGoal={metaMes.super_goal} nivel={st.nivel} pctMeta={st.pctMeta} />
+                ? <MetaGauge fat={M.fat} goal={metaMes.goal} superGoal={metaMes.super_goal} nivel={st.nivel} pctMeta={st.pctMeta}
+                    projecao={corrente ? st.projecao : undefined} rotulo={`Recebido em ${nm.split(" ")[0].toLowerCase()}`} />
                 : <div className="lg-big"><span>Recebido</span><strong className="mono">{brl(M.fat)}</strong></div>}
               <div className="lg-cmp"><Delta a={M.fat} b={P.fat} /><span>{cmp}: <b className="mono">{brl(P.fat)}</b></span></div>
               <div className="lg-pill-note">{metaTxt}</div>
