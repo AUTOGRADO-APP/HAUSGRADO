@@ -2,12 +2,12 @@
 import { addDays, ymd } from "./labels.ts";
 
 export type TipoRel = "todos" | "categoria" | "valor" | "vendidos" | "abc";
-export const TIPOS_REL: { k: TipoRel; l: string; d: string; vendas?: boolean; office?: boolean }[] = [
+export const TIPOS_REL: { k: TipoRel; l: string; d: string; vendas?: boolean }[] = [
   { k: "todos", l: "Todos os produtos", d: "Lista completa em ordem alfabética, com estoque e preço." },
   { k: "categoria", l: "Por categoria", d: "Produtos agrupados por categoria, com o total de cada grupo." },
-  { k: "valor", l: "Valor do estoque", d: "Quanto o estoque vale a preço de custo e a preço de venda.", office: true },
-  { k: "vendidos", l: "Mais vendidos", d: "Ranking das peças cadastradas vendidas nas O.S. finalizadas.", vendas: true, office: true },
-  { k: "abc", l: "Curva ABC", d: "Classifica as peças pelo faturamento: A (80%), B (15%) e C (5%).", vendas: true, office: true },
+  { k: "valor", l: "Valor do estoque", d: "Quanto o estoque vale a preço de custo e a preço de venda." },
+  { k: "vendidos", l: "Mais vendidos", d: "Ranking das peças cadastradas vendidas nas O.S. finalizadas.", vendas: true },
+  { k: "abc", l: "Curva ABC", d: "Classifica as peças pelo faturamento: A (80%), B (15%) e C (5%).", vendas: true },
 ];
 
 export const PERIODOS_REL: [string, string][] = [["30", "Últimos 30 dias"], ["90", "Últimos 90 dias"], ["180", "Últimos 6 meses"], ["365", "Últimos 12 meses"], ["ano", "Este ano"], ["livre", "De / até"]];

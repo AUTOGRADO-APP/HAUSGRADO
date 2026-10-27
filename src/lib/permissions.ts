@@ -37,6 +37,7 @@ export const NAV: NavItem[] = [
 /** Páginas restritas por prefixo, da mais específica para a mais geral (o resto é liberado para qualquer usuário logado). */
 const RESTRICTED: { prefix: string; roles: Role[] }[] = [
   { prefix: "/config", roles: ["master"] },
+  { prefix: "/produtos/relatorio", roles: ["master"] },   // relatórios do estoque: só o master
   { prefix: "/gestao", roles: FIN },
   { prefix: "/financeiro/despesas", roles: FIN },
   { prefix: "/financeiro/comissoes", roles: FIN },
