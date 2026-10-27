@@ -10,6 +10,7 @@ import { deltaAjuste, estoqueBaixo, estoqueSit, qtdBR } from "@/lib/estoque.ts";
 import { carregaBalanco, mmss, setBalanco, useBalanco, useRestante } from "@/lib/balanco.ts";
 import { EstoquePanel } from "./EstoquePanel.tsx";
 import { BalancoModal } from "./BalancoModal.tsx";
+import { RelatorioModal } from "./RelatorioModal.tsx";
 import { MascotImg } from "@/components/Mascot.tsx";
 
 export interface Produto {
@@ -77,6 +78,7 @@ export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { ro
   const router = useRouter();
   const fimBal = useBalanco(), restBal = useRestante(fimBal), bal = fimBal != null;
   const [modalBal, setModalBal] = useState(false);
+  const [modalRel, setModalRel] = useState(false);
   const [conferidos, setConferidos] = useState<Set<string>>(() => new Set());
   const encerrou = useRef(false);
   const antes = useRef<number | null>(null);
@@ -210,6 +212,7 @@ export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { ro
           <div className="ph"><h2>Produtos</h2>
             <span className="row"><span className="count">{rows.length}</span>
               <input className="input" id="pr-busca" placeholder="Buscar nome, fabricante, SKU, EAN ou NCM" value={busca} onChange={e => setBusca(e.target.value)} style={{ width: 280, maxWidth: "100%" }} />
+              <button className="key" id="pr-relatorios" onClick={() => setModalRel(true)}>{IDOC}Relatórios</button>
               {!bal && <button className="key" id="pr-balanco" onClick={() => setModalBal(true)}>{IBOX}Balanço</button>}</span>
           </div>
           {bal && (
@@ -301,8 +304,10 @@ export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { ro
         </aside>
       </div>
       {modalBal && <BalancoModal hasPassword={hasPassword} onClose={() => setModalBal(false)} />}
+      {modalRel && <RelatorioModal office={custos} onClose={() => setModalRel(false)} />}
     </main>
   );
 }
 
 const IBOX = <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1Z" /><path d="M16 5h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2" /><path d="m9 13 2 2 4-4" /></svg>;
+const IDOC = <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" /><path d="M14 3v5h5" /><path d="M9 17v-3M12 17v-6M15 17v-2" /></svg>;

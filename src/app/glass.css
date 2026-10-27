@@ -57,7 +57,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 }
 
 /* superfícies dentro dos cartões: "poços" translúcidos, sem desfoque próprio (leve para o Quadro com muitos cards) */
-.col,.mi,.tl,.ag-it,.com-card,.carac,.pk-it,.pag-total,.pag-row,.sv-card,.est-grid,.est-aj,.mg-nums>div,.cal-d,.gal figure,.mec,.linkbox,.tabs,.bal-lock,.pag-auth,.lcd:not(.ok):not(.err){
+.col,.mi,.tl,.ag-it,.rel-opt,.com-card,.carac,.pk-it,.pag-total,.pag-row,.sv-card,.est-grid,.est-aj,.mg-nums>div,.cal-d,.gal figure,.mec,.linkbox,.tabs,.bal-lock,.pag-auth,.lcd:not(.ok):not(.err){
   background:var(--gl-well);border-color:var(--gl-line);box-shadow:inset 0 1px 0 var(--gl-rim-2)}
 .pag-auth{border-color:var(--accent)}
 .bal-lock{border-color:var(--border-strong)}
