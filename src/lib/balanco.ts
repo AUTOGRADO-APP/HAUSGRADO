@@ -15,10 +15,11 @@ export async function carregaBalanco() {
   setBalanco((data as string | null) ?? null);
 }
 
-/** "59:07" a partir dos milissegundos que faltam. */
+/** "59:07" ou "2:59:07" a partir dos milissegundos que faltam. */
 export function mmss(ms: number): string {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const s = Math.max(0, Math.ceil(ms / 1000)), p2 = (n: number) => String(n).padStart(2, "0");
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h ? `${h}:${p2(m)}:${p2(s % 60)}` : `${p2(m)}:${p2(s % 60)}`;
 }
 
 /** Fim do balanço (ms) ou null. Atualiza a cada segundo enquanto ativo e desliga sozinho ao vencer. */

@@ -88,7 +88,7 @@ update products set stock_qty = 50 where sku is not null; -- falha (só por movi
 insert into stock_movements (shop_id, product_id, qty, kind) select shop_id, id, 5, 'ajuste' from products limit 1; -- falha (RLS)
 select adjust_stock((select id from products order by name limit 1), 4, 'Inventário'); -- falha (balanço desligado)
 select 'T42 balanço com senha errada (null)' t, start_stock_count('errada');
-select 'T43 balanço ativo por 60 min (t; senha trocada para abcd no T17)' t, start_stock_count('abcd') between now() + interval '59 minutes' and now() + interval '61 minutes';
+select 'T43 balanço ativo por 3 h (t; senha trocada para abcd no T17)' t, start_stock_count('abcd') between now() + interval '179 minutes' and now() + interval '181 minutes';
 select 'T25 atend ajusta inventário (+4 → 4)' t, adjust_stock((select id from products order by name limit 1), 4, 'Inventário');
 select adjust_stock((select id from products order by name limit 1), 2, ''); -- falha (sem motivo)
 select end_stock_count();

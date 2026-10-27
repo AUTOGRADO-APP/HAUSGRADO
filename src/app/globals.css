@@ -1048,3 +1048,21 @@ html[data-theme="dark"] .col .col-h .count{color:color-mix(in srgb,var(--c) 70%,
 .top-r .clock{flex:none}
 
 @media (max-width:980px){.side-prefs .theme-ic button{width:auto}}
+
+/* Relatórios do estoque (pop-up em Produtos) */
+.rel-modal{width:min(620px,100%)}
+.rel-body{overflow-y:auto;min-height:0;margin:0 -4px;padding:0 4px}
+.rel-opts{display:grid;gap:8px}
+.rel-opt{position:relative;display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:1.2rem;padding:10px 14px;cursor:pointer;background:var(--bg);transition:border-color .15s,background-color .15s}
+.rel-opt input{position:absolute;opacity:0;pointer-events:none}
+.rel-opt:hover{border-color:var(--accent)}
+.rel-opt:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.rel-opt.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.rel-opt.off{opacity:.5;cursor:not-allowed}.rel-opt.off:hover{border-color:var(--border)}
+.rel-n{display:grid;place-items:center;width:30px;height:30px;border-radius:.7rem;background:var(--border);font-size:9pt;font-weight:700;flex:none;transition:background-color .15s,color .15s}
+.rel-opt.on .rel-n{background:var(--accent);color:#fff}
+.rel-tx{display:flex;flex-direction:column;gap:1px;min-width:0}
+.rel-tx b{font-size:11pt}
+.rel-foot{justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.rel-modal .opt{border-radius:1rem;padding:9px 13px;line-height:1.3}
+@media (max-width:640px){.rel-opt{padding:9px 12px}.rel-foot .key{flex:1}}

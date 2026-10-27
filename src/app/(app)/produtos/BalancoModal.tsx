@@ -1,5 +1,5 @@
 "use client";
-// Pop-up do Balanço: pede a senha de autorização (a mesma do desconto) e libera o ajuste de estoque por 60 minutos.
+// Pop-up do Balanço: pede a senha de autorização (a mesma do desconto) e libera o ajuste de estoque por 3 horas.
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client.ts";
 import { setBalanco } from "@/lib/balanco.ts";
@@ -25,7 +25,7 @@ export function BalancoModal({ hasPassword, onClose }: { hasPassword: boolean; o
     if (!data) { setSenha(""); return toast("Senha de autorização incorreta", { err: true }); }
     setBalanco(data as string);
     sfx("ok");
-    toast("Modo balanço ativo por 60 minutos");
+    toast("Modo balanço ativo por 3 horas");
     onClose();
   }
 
@@ -36,7 +36,7 @@ export function BalancoModal({ hasPassword, onClose }: { hasPassword: boolean; o
           <h2 id="bl-t" style={{ fontSize: "14pt" }}>Balanço de estoque</h2>
           <button className="del" onClick={onClose} aria-label="Fechar">×</button>
         </div>
-        <p className="hint" style={{ margin: "0 0 4px" }}>Libera a alteração do estoque dos produtos por 60 minutos, só para você. Cada contagem fica nas movimentações com seu nome.</p>
+        <p className="hint" style={{ margin: "0 0 4px" }}>Libera a alteração do estoque dos produtos por 3 horas, só para você. Cada contagem fica nas movimentações com seu nome.</p>
         <div className="pag-auth">
           <div className="row" style={{ gap: 8, alignItems: "flex-start" }}>
             <span className="auth-ic">{IKEY}</span>
