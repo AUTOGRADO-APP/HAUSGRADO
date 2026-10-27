@@ -6,7 +6,7 @@ import { CATS } from "@/lib/labels.ts";
 import { PERIODOS_REL, TIPOS_REL, periodoRel, type TipoRel } from "@/lib/relatorios.ts";
 import { sfx, toast } from "@/lib/ui.ts";
 
-export function RelatorioModal({ office, onClose }: { office: boolean; onClose: () => void }) {
+export function RelatorioModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [tipo, setTipo] = useState<TipoRel>("todos");
   const [cat, setCat] = useState("");
@@ -42,12 +42,11 @@ export function RelatorioModal({ office, onClose }: { office: boolean; onClose: 
           <p className="hint" style={{ margin: "0 0 10px" }}>Escolha o relatório. Ele abre pronto para imprimir ou salvar em PDF.</p>
           <div className="rel-opts" role="radiogroup" aria-label="Tipo de relatório">
             {TIPOS_REL.map((t, i) => {
-              const bloq = t.office && !office;
               return (
-                <label key={t.k} className={`rel-opt ${tipo === t.k ? "on" : ""} ${bloq ? "off" : ""}`}>
-                  <input type="radio" name="rel-tipo" id={`rl-${t.k}`} value={t.k} checked={tipo === t.k} disabled={bloq} onChange={() => setTipo(t.k)} />
+                <label key={t.k} className={`rel-opt ${tipo === t.k ? "on" : ""}`}>
+                  <input type="radio" name="rel-tipo" id={`rl-${t.k}`} value={t.k} checked={tipo === t.k} onChange={() => setTipo(t.k)} />
                   <span className="rel-n mono">{String(i + 1).padStart(2, "0")}</span>
-                  <span className="rel-tx"><b>{t.l}</b><span className="hint">{bloq ? "Só para o escritório (mostra valores)." : t.d}</span></span>
+                  <span className="rel-tx"><b>{t.l}</b><span className="hint">{t.d}</span></span>
                 </label>
               );
             })}

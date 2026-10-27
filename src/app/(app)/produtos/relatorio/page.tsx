@@ -1,9 +1,9 @@
 // Relatórios do estoque (botão Relatórios em Produtos): página A4 em HTML com texto selecionável; imprime ou salva em PDF pelo navegador.
-// Valores de custo, valor do estoque e vendas só para o escritório (o mecânico vê as listas com o preço, como na tela).
+// Só o master (o middleware também barra a rota para os outros perfis).
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { createClient, getMe } from "@/lib/supabase/server.ts";
-import { isOffice } from "@/lib/permissions.ts";
+import { canDelete } from "@/lib/permissions.ts";
 import { brl } from "@/lib/rules.ts";
 import { CATN, CATS, dataBR, dtFull } from "@/lib/labels.ts";
 import { fmtNcm, prodResumo } from "@/lib/produtos.ts";
@@ -56,16 +56,15 @@ async function vendas(sb: SB, de: string, ate: string) {
 export default async function RelatorioPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
   const me = await getMe();
-  const office = isOffice(me?.role);
   const tipo = (TIPOS_REL.some(t => t.k === sp.tipo) ? sp.tipo : "todos") as TipoRel;
   const info = TIPOS_REL.find(t => t.k === tipo)!;
   const sb = await createClient();
   const back = "/produtos";
 
-  if (info.office && !office) {
+  if (!canDelete(me?.role)) {
     return (
       <main id="view"><section className="panel"><div className="ph"><h2>Relatório</h2></div>
-        <div className="empty">Este relatório mostra valores e fica com o escritório (atendente, administrador ou master).</div>
+        <div className="empty">Os relatórios do estoque ficam só com o usuário master.</div>
         <div className="row" style={{ marginTop: 12 }}><Link className="key" href={back}>‹ Voltar aos produtos</Link></div></section></main>
     );
   }
@@ -74,7 +73,7 @@ export default async function RelatorioPage({ searchParams }: { searchParams: Pr
     sb.from("products").select("id, name, manufacturer, sku, ean, ncm, cost, price, category, stock_qty, min_stock, viscosity, api, volume, application_spec, application_brands, additive_type").order("name"),
     sb.from("shops").select("name").single(),
   ]);
-  const rows: P[] = ((prods ?? []) as P[]).map(p => ({ ...p, cost: office ? Number(p.cost) : 0, price: Number(p.price), stock_qty: Number(p.stock_qty), min_stock: Number(p.min_stock) }))
+  const rows: P[] = ((prods ?? []) as P[]).map(p => ({ ...p, cost: Number(p.cost), price: Number(p.price), stock_qty: Number(p.stock_qty), min_stock: Number(p.min_stock) }))
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const byId = new Map(rows.map(p => [p.id, p]));
   const oficina = (shop as { name?: string } | null)?.name || "Autogrado";

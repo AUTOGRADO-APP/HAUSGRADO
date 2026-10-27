@@ -74,7 +74,8 @@ function Contagem({ p, conferido, onSaved }: { p: Produto; conferido: boolean; o
 }
 
 /** custos = false para o mecânico: some custo e markup, e salvar não mexe no custo. */
-export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { rows: Produto[]; filtroInicial?: string; hasPassword: boolean; custos: boolean }) {
+/** relatorios = só o master vê o botão Relatórios. */
+export function Produtos({ rows, filtroInicial = "", hasPassword, custos, relatorios }: { rows: Produto[]; filtroInicial?: string; hasPassword: boolean; custos: boolean; relatorios: boolean }) {
   const router = useRouter();
   const fimBal = useBalanco(), restBal = useRestante(fimBal), bal = fimBal != null;
   const [modalBal, setModalBal] = useState(false);
@@ -212,7 +213,7 @@ export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { ro
           <div className="ph"><h2>Produtos</h2>
             <span className="row"><span className="count">{rows.length}</span>
               <input className="input" id="pr-busca" placeholder="Buscar nome, fabricante, SKU, EAN ou NCM" value={busca} onChange={e => setBusca(e.target.value)} style={{ width: 280, maxWidth: "100%" }} />
-              <button className="key" id="pr-relatorios" onClick={() => setModalRel(true)}>{IDOC}Relatórios</button>
+              {relatorios && <button className="key" id="pr-relatorios" onClick={() => setModalRel(true)}>{IDOC}Relatórios</button>}
               {!bal && <button className="key" id="pr-balanco" onClick={() => setModalBal(true)}>{IBOX}Balanço</button>}</span>
           </div>
           {bal && (
@@ -304,7 +305,7 @@ export function Produtos({ rows, filtroInicial = "", hasPassword, custos }: { ro
         </aside>
       </div>
       {modalBal && <BalancoModal hasPassword={hasPassword} onClose={() => setModalBal(false)} />}
-      {modalRel && <RelatorioModal office={custos} onClose={() => setModalRel(false)} />}
+      {modalRel && <RelatorioModal onClose={() => setModalRel(false)} />}
     </main>
   );
 }

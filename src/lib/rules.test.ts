@@ -73,6 +73,9 @@ test("permissões por perfil", () => {
   assert.equal(canAccess("admin", "/financeiro/entradas"), true);
   assert.equal(canAccess("admin", "/config"), false);
   assert.equal(canAccess("master", "/config"), true);
+  assert.equal(canAccess("master", "/produtos/relatorio"), true);
+  assert.equal(canAccess("admin", "/produtos/relatorio"), false);
+  assert.equal(canAccess("atendente", "/produtos"), true);
   assert.equal(canAccess(null, "/quadro"), false);
   assert.equal(canAccess("atendente", "/financeiro/compras/novo"), true);
   assert.equal(canAccess("atendente", "/financeiro/despesas"), false);
